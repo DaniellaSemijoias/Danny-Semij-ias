@@ -4,7 +4,7 @@
 > Leia tudo antes de propor mudanças. Ao terminar cada mudança, atualize a seção
 > "Histórico" e as outras que mudaram, e entregue este arquivo junto.
 >
-> Última atualização: 28/09/2026 — **projeto no ar e em uso**.
+> Última atualização: 28/09/2026 (fim do dia) — **projeto no ar e em uso**.
 
 ## Quem é a cliente
 
@@ -68,7 +68,7 @@ erro de laço infinito no deploy — já aconteceu na Udiflex).
 | `src/main.jsx` | 9 | pronto — `/catalogo` abre o Catalog, o resto abre o App |
 | `src/api.js` | 305 | pronto |
 | `src/App.jsx` | 2145 | pronto — as 8 telas |
-| `src/Catalog.jsx` | 981 | pronto |
+| `src/Catalog.jsx` | 1116 | pronto |
 
 ## Banco (Supabase)
 
@@ -137,6 +137,15 @@ material — ouro 18k de verdade, por exemplo — é lá que se mexe.
   a página desce pelas categorias.
 - **Ficha:** galeria com setas, acabamento em dois grupos (Banho / Prata), aro só quando
   existe, quantidade e botão de sacola.
+- **Ampliar a foto (componente `Lupa`):** o selo "⌕ Ampliar" aparece no cartão já na
+  primeira olhada, e a ficha tem o mesmo botão sobre a foto. Abre em tela cheia, fundo
+  escuro, com **um único nível de ampliação** (`ZOOM_LUPA`, 230%): o botão alterna entre
+  "Ampliar" e "Reduzir", tocar na foto faz o mesmo, e a pessoa passeia pela **rolagem
+  normal do navegador**. Ao ampliar, a foto já começa centralizada. Setas trocam de foto
+  quando a peça tem mais de uma. Enquanto está aberta, a página atrás fica travada
+  (`body` fixo, com a posição devolvida ao fechar) e o voltar do celular fecha a foto.
+  **Não usar pinça nem `transform: scale`** — trava a tela em alguns celulares; já
+  aconteceu na FA e na Paixão.
 - **Fechamento em dois passos:** primeiro o aviso de **cuidados e garantia** (com
   confirmação obrigatória), depois a **forma de pagamento** (Pix, Dinheiro, Débito,
   Crédito com parcelamento) — só então o WhatsApp abre com o pedido montado.
@@ -173,6 +182,9 @@ material — ouro 18k de verdade, por exemplo — é lá que se mexe.
   `top/right/bottom/left`. Modais em `dvh`, não `vh`.
 - **Modais no celular:** são desenhados no `body` via `createPortal`. Sem isso a barra de
   navegação de baixo cobre o botão de salvar e o cadastro não fecha.
+- **Ampliação de foto:** nada de pinça nem `transform: scale` — travou a tela em alguns
+  celulares na FA e na Paixão. O padrão dos projetos é um nível só, com a rolagem do
+  navegador fazendo o passeio pela imagem.
 - **Ao entregar código:** cuidado com `\n` escrito como texto no meio de uma linha —
   quebrou um build inteiro. Conferir sempre o arquivo final.
 
@@ -200,6 +212,9 @@ certo no Supabase.
   Relatórios, Ajustes), `Catalog.jsx` criado, `admin.sql` para promover a Daniella,
   `sw.js` + registro no `index.html` para instalação no Android e no computador,
   publicado no Cloudflare Workers.
+- **28/09/2026 (fim do dia):** ampliação de foto no catálogo, no mesmo padrão da Paixão —
+  selo "Ampliar" já visível no cartão da vitrine, botão na ficha, tela cheia com
+  Ampliar/Reduzir e rolagem. A primeira versão, com pinça e `scale`, foi descartada.
 - **28/09/2026 (tarde):** aço removido e Banho Rosé acrescentado; abertura do catálogo
   refeita (Ken Burns, boas-vindas, botão) no lugar do flash de imagens; seções
   "Seja bem-vinda" e "Sobre o banho das suas peças"; ícones refeitos (joia, etiqueta,
