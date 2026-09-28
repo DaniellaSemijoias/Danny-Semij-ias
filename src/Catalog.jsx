@@ -123,13 +123,25 @@ function ImgArquivo({ nome, alt, style, reserva }) {
   return <img src={urls[k]} alt={alt} onError={() => setK(k + 1)} style={style} />;
 }
 
+/* Zoom de recorte da logo dentro do círculo. Se o arquivo tiver moldura
+   (fundo preto nas pontas), aumente para 1.16, 1.22… até sumir. */
+const ZOOM_LOGO = 1.12;
+
+/* Prata 925 é material, não banho — no catálogo os dois aparecem separados. */
+const ehPrata = (nome) => /925|prata\s*esterlina/i.test(nome || "") || /^\s*prata\s*$/i.test(nome || "");
+
 function Logo({ s = 88 }) {
-  const base = { width: s, height: s, borderRadius: "50%", objectFit: "cover", flexShrink: 0,
-    border: "2px solid rgba(255,255,255,.85)", boxShadow: "0 8px 26px rgba(59,34,48,.28)" };
+  const moldura = { width: s, height: s, borderRadius: "50%", flexShrink: 0, overflow: "hidden",
+    border: "2px solid rgba(255,255,255,.85)", boxShadow: "0 8px 26px rgba(59,34,48,.28)", background: T.vinho };
+  const foto = { width: "100%", height: "100%", objectFit: "cover", transform: `scale(${ZOOM_LOGO})`, display: "block" };
   const monograma = (
-    <div style={{ ...base, background: T.vinho, display: "grid", placeItems: "center", color: "#fff", fontFamily: SERIF, fontWeight: 700, fontSize: s * 0.42 }}>D</div>
+    <div style={{ width: "100%", height: "100%", display: "grid", placeItems: "center", color: "#fff", fontFamily: SERIF, fontWeight: 700, fontSize: s * 0.42 }}>D</div>
   );
-  return <ImgArquivo nome="icone" alt="" style={base} reserva={monograma} />;
+  return (
+    <div style={moldura}>
+      <ImgArquivo nome="icone" alt="" style={foto} reserva={monograma} />
+    </div>
+  );
 }
 
 function Abertura({ aoTerminar, loja }) {
@@ -256,6 +268,7 @@ function SobreBanho() {
     { icone: "brilho", titulo: "O banho pode perder o brilho", texto: "É normal e acontece com toda semijoia. O tempo que dura depende do uso, do suor, de perfume e de produtos químicos." },
     { icone: "gota", titulo: "Escurecer não é ferrugem", texto: "Semijoia não enferruja. Quando escurece, é o banho reagindo ao contato com água, creme ou perfume." },
     { icone: "estrela", titulo: "Pequenas diferenças são normais", texto: "O tom e o brilho podem variar um pouquinho entre peças e em relação à foto — cada banho reage do seu jeito." },
+    { icone: "coracao", titulo: "E as peças de prata 925?", texto: "Prata 925 não tem banho para sair. Ela pode escurecer com o tempo — é oxidação natural — e volta a brilhar com flanela própria para prata." },
     { icone: "escudo", titulo: "O que a garantia cobre", texto: "Defeito de fabricação: fecho que solta, solda que abre, pedra que cai sozinha. Não cobre perda de cor pelo uso, queda ou contato com água e química." },
   ];
   return (
@@ -644,7 +657,7 @@ function FichaPeca({ peca, aoFechar, aoAdicionar, largo }) {
   const disponivel = banho && aro ? peca.temEstoque(banho, aro) : false;
 
   const confirmar = () => {
-    if (!banho) return setErro("Escolha o banho.");
+    if (!banho) return setErro("Escolha o acabamento.");
     if (precisaAro && !aro) return setErro("Escolha o aro.");
     if (!disponivel) return setErro("Essa combinação está esgotada.");
     const b = peca.platings.find((x) => x.id === banho);
@@ -714,20 +727,27 @@ function FichaPeca({ peca, aoFechar, aoAdicionar, largo }) {
             <div style={{ fontSize: 14, color: T.ink2, lineHeight: 1.6, marginBottom: 18 }}>{peca.description}</div>
           )}
 
-          <div style={{ fontSize: 12.5, fontWeight: 600, color: T.ink2, marginBottom: 8 }}>Banho</div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
-            {peca.platings.map((b) => {
-              const tem = peca.banhoTem(b.id);
-              const on = banho === b.id;
-              return (
-                <button key={b.id} disabled={!tem} onClick={() => { setBanho(b.id); setErro(""); }} className="ct-btn"
-                  style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "9px 14px", borderRadius: 999, cursor: tem ? "pointer" : "not-allowed", opacity: tem ? 1 : 0.4, fontSize: 13.5, fontWeight: 600, background: on ? T.vinhoSoft : "#fff", color: on ? T.vinho : T.ink2, border: `1px solid ${on ? T.vinho : T.line}` }}>
-                  <span style={{ width: 13, height: 13, borderRadius: "50%", background: b.hex || T.rose, border: `1px solid ${T.line}` }} />
-                  {b.name}
-                </button>
-              );
-            })}
-          </div>
+          {[["Banho", peca.platings.filter((b) => !ehPrata(b.name))],
+            ["Prata", peca.platings.filter((b) => ehPrata(b.name))]].map(([grupo, itens]) => (
+            itens.length === 0 ? null : (
+              <div key={grupo} style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 11.5, letterSpacing: .8, textTransform: "uppercase", color: T.ink3, fontWeight: 700, marginBottom: 7 }}>{grupo}</div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {itens.map((b) => {
+                    const tem = peca.banhoTem(b.id);
+                    const on = banho === b.id;
+                    return (
+                      <button key={b.id} disabled={!tem} onClick={() => { setBanho(b.id); setErro(""); }} className="ct-btn"
+                        style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "9px 14px", borderRadius: 999, cursor: tem ? "pointer" : "not-allowed", opacity: tem ? 1 : 0.4, fontSize: 13.5, fontWeight: 600, background: on ? T.vinhoSoft : "#fff", color: on ? T.vinho : T.ink2, border: `1px solid ${on ? T.vinho : T.line}` }}>
+                        <span style={{ width: 13, height: 13, borderRadius: "50%", background: b.hex || T.rose, border: `1px solid ${T.line}` }} />
+                        {b.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )
+          ))}
 
           {precisaAro && (
             <>
@@ -748,7 +768,7 @@ function FichaPeca({ peca, aoFechar, aoAdicionar, largo }) {
           )}
 
           {erro && <div style={{ fontSize: 13, color: T.err, fontWeight: 600 }}>{erro}</div>}
-          {!erro && !disponivel && <div style={{ fontSize: 13, color: T.ink3 }}>Escolha uma combinação disponível.</div>}
+          {!erro && !disponivel && <div style={{ fontSize: 13, color: T.ink3 }}>Escolha um acabamento disponível.</div>}
         </div>
       </div>
     </Folha>
@@ -824,6 +844,8 @@ function Cuidados({ aberto, aoFechar, texto, aoSeguir }) {
 • Nada de produto de limpeza, cloro ou água sanitária.
 • Guarde cada peça separada, num saquinho, em lugar seco e longe do sol.
 • Para limpar, só flanela macia e seca.
+
+Prata 925: essa não tem banho para sair. Com o tempo pode escurecer (oxidação natural) e volta ao brilho com flanela própria para prata. Ainda assim, evite piscina, mar e produtos de limpeza.
 
 Garantia: cobre defeito de fabricação — fecho que solta, solda que abre, pedra que cai sozinha. Não cobre perda de cor pelo uso, queda, amassado ou contato com água e produtos químicos.`;
 
