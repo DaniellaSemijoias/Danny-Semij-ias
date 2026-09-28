@@ -32,8 +32,8 @@ const ICONES = {
   check: "m20 6-11 11-5-5",
   whats: "M21 11.5a8.4 8.4 0 0 1-12.6 7.3L3 20.5l1.8-5.2A8.5 8.5 0 1 1 21 11.5",
   escudo: "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z",
-  cartao: "M3 6h18a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1M2 10h20",
-  joia: "m12 2 3 5h6l-4.5 4.5L18 22l-6-3.5L6 22l1.5-10.5L3 7h6z",
+  cartao: "M3 6h18a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1M2 10h20M6 15h4",\n  pix: "M12 2.6 21.4 12 12 21.4 2.6 12zM8.4 8.4 12 4.8l3.6 3.6M8.4 15.6 12 19.2l3.6-3.6",
+  joia: "M6 3h12l3 6-9 12-9-12zM3 9h18M9 3 6 9l6 12M15 3l3 6-6 12",
   instagram: "M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8M17 3H7a4 4 0 0 0-4 4v10a4 4 0 0 0 4 4h10a4 4 0 0 0 4-4V7a4 4 0 0 0-4-4M17.5 6.5h.01",
   seta: "M12 5v14M19 12l-7 7-7-7",
   gota: "M12 2.7 6.8 9a7 7 0 1 0 10.4 0z",
@@ -106,16 +106,30 @@ function achaQuadro(urls) {
    diminua para 8, 6. */
 const CORTE_RODAPE = 10;
 
+/* O arquivo no bucket pode estar como icone.jpg, ICONE.JPG, Icone.jpeg…
+   Tenta as grafias até uma carregar; se nenhuma vier, usa o monograma. */
+const VARIANTES = (nome) => {
+  const bases = [nome, nome.toUpperCase(), nome.charAt(0).toUpperCase() + nome.slice(1)];
+  const exts = ["jpg", "jpeg", "png", "webp", "JPG", "JPEG", "PNG"];
+  const lista = [];
+  bases.forEach((b) => exts.forEach((e) => lista.push(ARQUIVOS + encodeURIComponent(`${b}.${e}`))));
+  return [...new Set(lista)];
+};
+
+function ImgArquivo({ nome, alt, style, reserva }) {
+  const urls = useMemo(() => VARIANTES(nome), [nome]);
+  const [k, setK] = useState(0);
+  if (k >= urls.length) return reserva || null;
+  return <img src={urls[k]} alt={alt} onError={() => setK(k + 1)} style={style} />;
+}
+
 function Logo({ s = 88 }) {
-  const [falhou, setFalhou] = useState(false);
   const base = { width: s, height: s, borderRadius: "50%", objectFit: "cover", flexShrink: 0,
     border: "2px solid rgba(255,255,255,.85)", boxShadow: "0 8px 26px rgba(59,34,48,.28)" };
-  if (falhou) {
-    return (
-      <div style={{ ...base, background: T.vinho, display: "grid", placeItems: "center", color: "#fff", fontFamily: SERIF, fontWeight: 700, fontSize: s * 0.42 }}>D</div>
-    );
-  }
-  return <img src={ARQUIVOS + "icone.jpg"} alt="" onError={() => setFalhou(true)} style={base} />;
+  const monograma = (
+    <div style={{ ...base, background: T.vinho, display: "grid", placeItems: "center", color: "#fff", fontFamily: SERIF, fontWeight: 700, fontSize: s * 0.42 }}>D</div>
+  );
+  return <ImgArquivo nome="icone" alt="" style={base} reserva={monograma} />;
 }
 
 function Abertura({ aoTerminar, loja }) {
@@ -464,8 +478,9 @@ export default function Catalog() {
       <header style={{ background: "#fff", borderBottom: `1px solid ${T.line}`, padding: "18px 16px 0" }}>
         <div style={{ maxWidth: 1080, margin: "0 auto" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 14 }}>
-            <img src={ARQUIVOS + "logo.jpg"} alt={loja.storeName || "Danny Semijoias"}
-              style={{ width: "100%", maxWidth: 420, borderRadius: 16, boxShadow: SOMBRA }} />
+            <ImgArquivo nome="logo" alt={loja.storeName || "Danny Semijoias"}
+              style={{ width: "100%", maxWidth: 420, borderRadius: 16, boxShadow: SOMBRA }}
+              reserva={<Logo s={78} />} />
           </div>
 
           <div style={{ position: "relative", marginBottom: 14 }}>
@@ -845,8 +860,8 @@ Garantia: cobre defeito de fabricação — fecho que solta, solda que abre, ped
 
 /* ------------------ Passo 2 — pagamento e envio no WhatsApp --------------- */
 const FORMAS = [
-  { id: "Pix", icone: "check" },
-  { id: "Dinheiro", icone: "check" },
+  { id: "Pix", icone: "pix" },
+  { id: "Dinheiro", icone: "caixa" },
   { id: "Cartão de débito", icone: "cartao" },
   { id: "Cartão de crédito", icone: "cartao" },
 ];
