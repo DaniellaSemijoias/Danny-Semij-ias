@@ -21,6 +21,23 @@ const ARQUIVOS = "https://qgdjigwgtzykmrakqoep.supabase.co/storage/v1/object/pub
 const brl = (n) => (Number(n) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const soDigitos = (t) => String(t || "").replace(/\D/g, "");
 
+/* Número da loja. Se o campo em Ajustes estiver vazio ou incompleto, cai neste. */
+const WHATSAPP_PADRAO = "5534999955420";
+
+/* Monta o número no formato que o WhatsApp exige: 55 + DDD + número.
+   Aceita o que a dona digitar: "34999955420", "(34) 99995-5420",
+   "5534999955420" ou "+55 34 99995-5420". */
+function numeroZap(bruto) {
+  let n = soDigitos(bruto);
+  if (n.startsWith("0")) n = n.replace(/^0+/, "");
+  if (n.length >= 12 && n.startsWith("55")) return n;   /* já veio com o 55 */
+  if (n.length === 10 || n.length === 11) return "55" + n;
+  return WHATSAPP_PADRAO;
+}
+
+const linkZap = (bruto, texto) =>
+  `https://wa.me/${numeroZap(bruto)}${texto ? `?text=${encodeURIComponent(texto)}` : ""}`;
+
 const ICONES = {
   busca: "M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16M21 21l-4.3-4.3",
   sacola: "M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4zM3 6h18M16 10a4 4 0 0 1-8 0",
@@ -699,8 +716,8 @@ export default function Catalog() {
         <div style={{ fontFamily: SERIF, fontSize: 18, fontWeight: 600, color: T.vinho }}>{loja.storeName || "Danny Semijoias"}</div>
         {loja.tagline && <div style={{ fontSize: 13, color: T.rose, marginTop: 3 }}>{loja.tagline}</div>}
         <div style={{ display: "flex", gap: 10, justifyContent: "center", margin: "14px 0 16px", flexWrap: "wrap" }}>
-          {loja.whatsapp && (
-            <Botao tipo="zap" icone="whats" tamanho="s" onClick={() => window.open(`https://wa.me/55${soDigitos(loja.whatsapp)}`, "_blank")}>
+          {(
+            <Botao tipo="zap" icone="whats" tamanho="s" onClick={() => window.open(linkZap(loja.whatsapp), "_blank")}>
               Falar no WhatsApp
             </Botao>
           )}
@@ -717,8 +734,8 @@ export default function Catalog() {
       </footer>
 
       {/* ----------------------------- Flutuantes --------------------------- */}
-      {loja.whatsapp && (
-        <button onClick={() => window.open(`https://wa.me/55${soDigitos(loja.whatsapp)}`, "_blank")} aria-label="WhatsApp" className="ct-btn"
+      {(
+        <button onClick={() => window.open(linkZap(loja.whatsapp), "_blank")} aria-label="WhatsApp" className="ct-btn"
           style={{ position: "fixed", right: 16, bottom: sacola.length ? 92 : 22, width: 54, height: 54, borderRadius: "50%", border: "none", background: T.zap, color: "#fff", boxShadow: SOMBRA_ALTA, cursor: "pointer", display: "grid", placeItems: "center", zIndex: 60 }}>
           <Icone n="whats" s={25} />
         </button>
@@ -1049,7 +1066,7 @@ function Pagamento({ aberto, aoFechar, loja, itens, total, aoEnviar }) {
       obs.trim() ? `Observação: ${obs.trim()}` : "",
     ].filter(Boolean).join("\n");
 
-    window.open(`https://wa.me/55${soDigitos(loja.whatsapp)}?text=${encodeURIComponent(texto)}`, "_blank");
+    window.open(linkZap(loja.whatsapp, texto), "_blank");
     aoEnviar();
   };
 
