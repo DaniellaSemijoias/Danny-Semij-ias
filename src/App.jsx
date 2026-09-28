@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import * as api from "./api";
 
 /* ===========================================================================
@@ -202,8 +203,19 @@ function Vazio({ children, icone = "pecas" }) {
 
 function Modal({ aberto, aoFechar, titulo, sub, children, largo, rodape }) {
   useVoltar(!!aberto, aoFechar);
+
+  /* Trava a rolagem do fundo enquanto a janela está aberta. */
+  useEffect(() => {
+    if (!aberto) return;
+    const antes = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = antes; };
+  }, [aberto]);
+
   if (!aberto) return null;
-  return (
+
+  /* Desenhado no body: assim a barra de baixo nunca passa por cima. */
+  return createPortal((
     <div className="dn-fade" onClick={aoFechar}
       style={{ position: "fixed", top: 0, right: 0, bottom: 0, left: 0, height: "100dvh", background: "rgba(59,34,48,.45)", zIndex: 90, display: "flex", alignItems: "flex-end", justifyContent: "center", backdropFilter: "blur(3px)" }}>
       <div onClick={(e) => e.stopPropagation()} className="dn-scroll"
@@ -221,10 +233,14 @@ function Modal({ aberto, aoFechar, titulo, sub, children, largo, rodape }) {
           </div>
         </div>
         <div style={{ padding: "18px 20px 22px" }}>{children}</div>
-        {rodape && <div style={{ position: "sticky", bottom: 0, background: "#fff", borderTop: `1px solid ${T.line}`, padding: "14px 20px", display: "flex", gap: 10 }}>{rodape}</div>}
+        {rodape && (
+          <div style={{ position: "sticky", bottom: 0, background: "#fff", borderTop: `1px solid ${T.line}`, padding: "14px 20px calc(14px + env(safe-area-inset-bottom,0px))", display: "flex", gap: 10, zIndex: 3 }}>
+            {rodape}
+          </div>
+        )}
       </div>
     </div>
-  );
+  ), document.body);
 }
 
 function Aviso({ msg }) {
@@ -260,12 +276,21 @@ function ImgArquivo({ nome, alt, style, reserva }) {
   return <img src={urls[k]} alt={alt} onError={() => setK(k + 1)} style={style} />;
 }
 
+/* Zoom de recorte da logo. Se o arquivo tiver moldura (fundo preto nas
+   pontas), aumente para 1.16, 1.22… até sumir. */
+const ZOOM_LOGO = 1.12;
+
 function Marca({ s = 36 }) {
-  const base = { width: s, height: s, borderRadius: 12, flexShrink: 0, objectFit: "cover", border: `1px solid ${T.line}` };
+  const moldura = { width: s, height: s, borderRadius: "50%", flexShrink: 0, overflow: "hidden", background: T.vinho, border: `1px solid ${T.line}` };
+  const foto = { width: "100%", height: "100%", objectFit: "cover", transform: `scale(${ZOOM_LOGO})`, display: "block" };
   const monograma = (
-    <div style={{ ...base, background: T.vinho, border: "none", display: "grid", placeItems: "center", color: "#fff", fontFamily: SERIF, fontWeight: 700, fontSize: s * 0.42 }}>D</div>
+    <div style={{ width: "100%", height: "100%", display: "grid", placeItems: "center", color: "#fff", fontFamily: SERIF, fontWeight: 700, fontSize: s * 0.42 }}>D</div>
   );
-  return <ImgArquivo nome="icone" alt="Danny" style={base} reserva={monograma} />;
+  return (
+    <div style={moldura}>
+      <ImgArquivo nome="icone" alt="Danny" style={foto} reserva={monograma} />
+    </div>
+  );
 }
 
 function Indicador({ rotulo, valor, nota, icone, cor, fundo }) {
@@ -648,6 +673,10 @@ function Inicio({ ctx }) {
 
 const ehAnel = (nome) => /an[eé][li]|an[eé]is/i.test(nome || "");
 
+/* Prata 925 é material, não banho. O agrupamento é só pelo nome:
+   se acrescentar outro material (ouro 18k, por exemplo), inclua aqui. */
+const ehPrata = (nome) => /925|prata\s*esterlina/i.test(nome || "") || /^\s*prata\s*$/i.test(nome || "");
+
 function Miniatura({ url, s = 54, raio = 12 }) {
   const [falhou, setFalhou] = useState(false);
   const base = { width: s, height: s, borderRadius: raio, flexShrink: 0, objectFit: "cover", border: `1px solid ${T.line}`, background: T.bg2 };
@@ -827,7 +856,7 @@ function FichaPeca({ ctx, peca, aoFechar, aoEditar, aoExcluir }) {
           </div>
           {peca.description && <div style={{ fontSize: 14, color: T.ink2, lineHeight: 1.55, marginBottom: 16 }}>{peca.description}</div>}
 
-          <div style={{ fontSize: 12.5, fontWeight: 600, color: T.ink2, marginBottom: 8 }}>Estoque por banho e aro</div>
+          <div style={{ fontSize: 12.5, fontWeight: 600, color: T.ink2, marginBottom: 8 }}>Estoque por acabamento e aro</div>
           <Cartao style={{ padding: 6 }}>
             {peca.variations.length === 0 && <Vazio icone="estoque">Sem variações cadastradas.</Vazio>}
             {peca.variations.map((v) => {
@@ -886,7 +915,7 @@ function FormPeca({ ctx, inicial, aoFechar }) {
     if (!f.name.trim()) return avisar("Dê um nome para a peça.", "erro");
     if (!f.categoryId) return avisar("Escolha a categoria.", "erro");
     if (!Number(f.price)) return avisar("Informe o preço de venda.", "erro");
-    if (!f.banhos.length) return avisar("Escolha pelo menos um banho.", "erro");
+    if (!f.banhos.length) return avisar("Escolha pelo menos um acabamento.", "erro");
     if (comAro && !arosUsados.length) return avisar("Escolha pelo menos um aro.", "erro");
 
     setSalvando(true);
@@ -987,19 +1016,27 @@ function FormPeca({ ctx, inicial, aoFechar }) {
       </Campo>
 
       <div style={{ borderTop: `1px solid ${T.line}`, paddingTop: 16, marginTop: 4 }}>
-        <div style={{ fontSize: 12.5, fontWeight: 600, color: T.ink2, marginBottom: 8 }}>Banhos disponíveis <span style={{ color: T.err }}>*</span></div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
-          {meta.platings.map((b) => {
-            const on = f.banhos.includes(b.id);
-            return (
-              <button key={b.id} onClick={() => alterna("banhos", b.id)} className="dn-btn"
-                style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "8px 13px", borderRadius: 999, cursor: "pointer", fontSize: 13.5, fontWeight: 600, background: on ? T.vinhoSoft : "#fff", color: on ? T.vinho : T.ink2, border: `1px solid ${on ? T.vinho : T.line}` }}>
-                <span style={{ width: 13, height: 13, borderRadius: "50%", background: b.hex || T.rose, border: `1px solid ${T.line}` }} />
-                {b.name}
-              </button>
-            );
-          })}
-        </div>
+        <div style={{ fontSize: 12.5, fontWeight: 600, color: T.ink2, marginBottom: 8 }}>Acabamento <span style={{ color: T.err }}>*</span></div>
+        {[["Banho", meta.platings.filter((b) => !ehPrata(b.name))],
+          ["Prata", meta.platings.filter((b) => ehPrata(b.name))]].map(([grupo, itens]) => (
+          itens.length === 0 ? null : (
+            <div key={grupo} style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 11.5, letterSpacing: .8, textTransform: "uppercase", color: T.ink3, fontWeight: 700, marginBottom: 7 }}>{grupo}</div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {itens.map((b) => {
+                  const on = f.banhos.includes(b.id);
+                  return (
+                    <button key={b.id} onClick={() => alterna("banhos", b.id)} className="dn-btn"
+                      style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "8px 13px", borderRadius: 999, cursor: "pointer", fontSize: 13.5, fontWeight: 600, background: on ? T.vinhoSoft : "#fff", color: on ? T.vinho : T.ink2, border: `1px solid ${on ? T.vinho : T.line}` }}>
+                      <span style={{ width: 13, height: 13, borderRadius: "50%", background: b.hex || T.rose, border: `1px solid ${T.line}` }} />
+                      {b.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )
+        ))}
 
         {comAro && (
           <>
@@ -1196,7 +1233,7 @@ function FormMovimento({ ctx, inicial, aoFechar }) {
       </Campo>
 
       {peca && (
-        <Campo label="Banho e aro" obrigatorio>
+        <Campo label="Acabamento e aro" obrigatorio>
           <Selecao value={varId} onChange={(e) => setVarId(e.target.value)}>
             {peca.variations.map((v) => {
               const a = ctx.aro(v.sizeId);
@@ -1426,7 +1463,7 @@ function FormVenda({ ctx, aoFechar }) {
       </Campo>
 
       {peca && (
-        <Campo label="Banho e aro" obrigatorio>
+        <Campo label="Acabamento e aro" obrigatorio>
           <Selecao value={varId} onChange={(e) => setVarId(e.target.value)}>
             {variacoes.map((v) => {
               const a = ctx.aro(v.sizeId);
@@ -1817,7 +1854,7 @@ function Relatorios({ ctx }) {
   const porBanho = useMemo(() => {
     const mapa = new Map();
     vendas.forEach((m) => {
-      const nome = ctx.banho(m.platingId)?.name || "Sem banho";
+      const nome = ctx.banho(m.platingId)?.name || "Sem acabamento";
       const a = mapa.get(nome) || { nome, qtd: 0, valor: 0, hex: ctx.banho(m.platingId)?.hex };
       a.qtd += m.quantity; a.valor += m.total; mapa.set(nome, a);
     });
@@ -1865,7 +1902,7 @@ function Relatorios({ ctx }) {
         </div>
 
         <div>
-          <Titulo sub="Ouro, prata, aço — qual a cliente prefere">Comparativo por banho</Titulo>
+          <Titulo sub="Qual acabamento a cliente prefere">Comparativo por acabamento</Titulo>
           <Cartao style={{ padding: 6, marginBottom: 18 }}>
             {porBanho.length === 0 && <Vazio icone="relatorios">Sem vendas no período.</Vazio>}
             {porBanho.map((p, i) => <Barra key={i} rotulo={p.nome} valor={p.qtd} maximo={maxBanho} texto={`${p.qtd} un. · ${brl(p.valor)}`} cor={p.hex || T.rose} />)}
@@ -1951,7 +1988,7 @@ function Ajustes({ ctx }) {
   ]);
 
   const exportarVendas = () => baixarCSV("vendas-danny.csv", [
-    ["Data", "Peça", "Banho", "Quantidade", "Valor", "Cliente", "Estornada"],
+    ["Data", "Peça", "Acabamento", "Quantidade", "Valor", "Cliente", "Estornada"],
     ...movs.filter((m) => m.type === "SALE").map((m) => [
       diaHora(m.createdAt), m.productName, ctx.banho(m.platingId)?.name || "", m.quantity, m.total, m.customerName, m.reversed ? "sim" : "não",
     ]),
@@ -2006,7 +2043,7 @@ function Ajustes({ ctx }) {
 
       <ListaEditavel ctx={ctx} titulo="Categorias" itens={meta.categories}
         aoAdicionar={recarregaDepois((n) => api.addCategory(n))} aoRemover={recarregaDepois(api.removeCategory)} />
-      <ListaEditavel ctx={ctx} titulo="Banhos" itens={meta.platings} comCor
+      <ListaEditavel ctx={ctx} titulo="Acabamentos (banhos e prata)" itens={meta.platings} comCor
         aoAdicionar={recarregaDepois((n, c) => api.addPlating(n, c))} aoRemover={recarregaDepois(api.removePlating)} />
       <ListaEditavel ctx={ctx} titulo="Aros" itens={meta.sizes}
         aoAdicionar={recarregaDepois((n) => api.addSize(n))} aoRemover={recarregaDepois(api.removeSize)} />
