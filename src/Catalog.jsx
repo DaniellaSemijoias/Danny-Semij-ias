@@ -72,6 +72,8 @@ input,select,textarea,button{font-family:inherit}
 @keyframes ctFlutua{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
 @keyframes ctPula{0%,100%{transform:translateY(0);opacity:.75}50%{transform:translateY(7px);opacity:1}}
 .ct-sobe{animation:ctSobe .7s cubic-bezier(.16,1,.3,1) both}
+.ct-lupa::-webkit-scrollbar{width:6px;height:6px}
+.ct-lupa::-webkit-scrollbar-thumb{background:rgba(255,255,255,.35);border-radius:99px}
 `;
 
 /* ------------------------- Abertura (ABERTURA 01 a 06) -------------------- */
@@ -299,6 +301,118 @@ function SobreBanho() {
   );
 }
 
+/* --------------------------------- Lupa ----------------------------------- */
+/* Um nível só de ampliação. O botão alterna Ampliar/Reduzir e a pessoa passeia
+   na foto pela rolagem normal do navegador.
+   NÃO usar pinça nem transform: scale — travou a tela em alguns celulares
+   (já aconteceu na FA e na Paixão).                                          */
+const ZOOM_LUPA = "230%";   /* largura da foto quando ampliada */
+
+function Lupa({ fotos, inicio = 0, titulo, aoFechar }) {
+  const [i, setI] = useState(inicio);
+  const [perto, setPerto] = useState(false);
+  const caixa = useRef(null);
+
+  /* trava a página atrás e faz o voltar do celular fechar a foto */
+  useEffect(() => {
+    const y = window.scrollY;
+    const corpo = document.body.style;
+    const antes = { position: corpo.position, top: corpo.top, width: corpo.width, overflow: corpo.overflow };
+    corpo.position = "fixed";
+    corpo.top = `-${y}px`;
+    corpo.width = "100%";
+    corpo.overflow = "hidden";
+
+    window.history.pushState({ lupa: true }, "");
+    const fechar = () => aoFechar();
+    window.addEventListener("popstate", fechar);
+
+    return () => {
+      corpo.position = antes.position;
+      corpo.top = antes.top;
+      corpo.width = antes.width;
+      corpo.overflow = antes.overflow;
+      window.scrollTo(0, y);
+      window.removeEventListener("popstate", fechar);
+    };
+  }, []);
+
+  /* ao ampliar, começa pelo meio da foto */
+  useEffect(() => {
+    const el = caixa.current;
+    if (!el) return;
+    if (perto) {
+      requestAnimationFrame(() => {
+        el.scrollLeft = (el.scrollWidth - el.clientWidth) / 2;
+        el.scrollTop = (el.scrollHeight - el.clientHeight) / 2;
+      });
+    } else {
+      el.scrollLeft = 0;
+      el.scrollTop = 0;
+    }
+  }, [perto, i]);
+
+  const trocar = (d) => { setPerto(false); setI((k) => (k + d + fotos.length) % fotos.length); };
+
+  const redondo = {
+    width: 44, height: 44, borderRadius: "50%", border: "none", cursor: "pointer",
+    background: "rgba(255,255,255,.18)", color: "#fff", display: "grid", placeItems: "center",
+  };
+
+  return (
+    <div style={{ position: "fixed", top: 0, right: 0, bottom: 0, left: 0, height: "100dvh", zIndex: 300, background: "#1B1016", display: "flex", flexDirection: "column" }}>
+      {/* topo */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "calc(12px + env(safe-area-inset-top,0px)) 14px 12px", color: "#fff", flexShrink: 0 }}>
+        <button onClick={aoFechar} aria-label="Voltar" className="ct-btn" style={redondo}>
+          <Icone n="voltar" s={19} />
+        </button>
+        <div style={{ flex: 1, minWidth: 0, fontFamily: SERIF, fontSize: 17, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {titulo}
+        </div>
+        {fotos.length > 1 && (
+          <span style={{ fontSize: 13, color: "rgba(255,255,255,.7)", fontWeight: 600 }}>{i + 1}/{fotos.length}</span>
+        )}
+      </div>
+
+      {/* foto — reduzida cabe na tela; ampliada, rola para os lados */}
+      <div ref={caixa} className="ct-lupa"
+        style={{ flex: 1, minHeight: 0, overflow: perto ? "auto" : "hidden", WebkitOverflowScrolling: "touch",
+          display: perto ? "block" : "flex", alignItems: "center", justifyContent: "center", padding: perto ? 0 : 12 }}>
+        <img src={fotos[i]} alt={titulo} draggable="false"
+          onClick={() => setPerto((v) => !v)}
+          style={perto
+            ? { width: ZOOM_LUPA, maxWidth: "none", height: "auto", display: "block", cursor: "zoom-out" }
+            : { maxWidth: "100%", maxHeight: "100%", width: "auto", height: "auto", display: "block", borderRadius: 10, cursor: "zoom-in" }} />
+      </div>
+
+      {/* setas, quando a peça tem mais de uma foto */}
+      {fotos.length > 1 && !perto && (
+        <div style={{ position: "absolute", left: 0, right: 0, top: "50%", marginTop: -22, display: "flex", justifyContent: "space-between", padding: "0 10px", pointerEvents: "none" }}>
+          <button onClick={() => trocar(-1)} aria-label="Anterior" className="ct-btn" style={{ ...redondo, pointerEvents: "auto" }}>
+            <Icone n="voltar" s={18} />
+          </button>
+          <button onClick={() => trocar(1)} aria-label="Próxima" className="ct-btn" style={{ ...redondo, pointerEvents: "auto" }}>
+            <Icone n="avancar" s={18} />
+          </button>
+        </div>
+      )}
+
+      {/* botão único: Ampliar / Reduzir */}
+      <div style={{ display: "flex", justifyContent: "center", padding: "12px 14px calc(16px + env(safe-area-inset-bottom,0px))", flexShrink: 0 }}>
+        <button onClick={() => setPerto((v) => !v)} className="ct-btn"
+          style={{ display: "inline-flex", alignItems: "center", gap: 9, border: "none", cursor: "pointer", background: "#fff", color: T.vinho, borderRadius: 999, padding: "13px 24px", fontSize: 14.5, fontWeight: 700 }}>
+          <Icone n={perto ? "menos" : "busca"} s={17} />
+          {perto ? "Reduzir" : "Ampliar"}
+        </button>
+      </div>
+
+      <div style={{ textAlign: "center", fontSize: 11.5, color: "rgba(255,255,255,.55)", padding: "0 16px calc(12px + env(safe-area-inset-bottom,0px))" }}>
+        {perto ? "Arraste para ver os detalhes" : "Toque na foto para ampliar"}
+      </div>
+    </div>
+  );
+}
+
 /* ------------------------------- Peças base ------------------------------- */
 function Foto({ url, raio = 14, altura = "100%", children }) {
   const [falhou, setFalhou] = useState(false);
@@ -382,6 +496,7 @@ export default function Catalog() {
   const [busca, setBusca] = useState("");
   const [aba, setAba] = useState("Todas");
   const [ficha, setFicha] = useState(null);
+  const [ampliar, setAmpliar] = useState(null);   /* { fotos, inicio, titulo } */
   const [sacola, setSacola] = useState([]);
   const [verSacola, setVerSacola] = useState(false);
   const [passo, setPasso] = useState(0);        /* 1 cuidados · 2 pagamento */
@@ -554,7 +669,15 @@ export default function Catalog() {
               {itens.map((p) => (
                 <div key={p.id} onClick={() => setFicha(p)} className="ct-card"
                   style={{ scrollSnapAlign: "start", flexShrink: 0, width: largo ? 230 : 168, background: "#fff", borderRadius: 18, border: `1px solid ${T.line}`, boxShadow: SOMBRA, overflow: "hidden", cursor: "pointer" }}>
-                  <Foto url={p.photos[0]} raio={0} />
+                  <Foto url={p.photos[0]} raio={0}>
+                    {p.photos.length > 0 && (
+                      <button aria-label="Ampliar foto" className="ct-btn"
+                        onClick={(e) => { e.stopPropagation(); setAmpliar({ fotos: p.photos, inicio: 0, titulo: p.name }); }}
+                        style={{ position: "absolute", right: 7, bottom: 7, display: "inline-flex", alignItems: "center", gap: 5, border: "none", cursor: "pointer", background: "rgba(27,16,22,.6)", color: "#fff", borderRadius: 999, padding: "6px 11px", fontSize: 11.5, fontWeight: 700 }}>
+                        <Icone n="busca" s={13} />Ampliar
+                      </button>
+                    )}
+                  </Foto>
                   <div style={{ padding: "11px 12px 13px" }}>
                     <div style={{ fontSize: 13.5, fontWeight: 600, lineHeight: 1.3, minHeight: 35, overflow: "hidden" }}>{p.name}</div>
                     <div style={{ fontFamily: SERIF, fontSize: 18, fontWeight: 600, color: T.vinho, margin: "6px 0 9px" }}>{brl(p.price)}</div>
@@ -623,7 +746,12 @@ export default function Catalog() {
       )}
 
       {/* ------------------------------- Telas ------------------------------ */}
-      {ficha && <FichaPeca peca={ficha} aoFechar={() => setFicha(null)} aoAdicionar={adicionar} largo={largo} />}
+      {ficha && (
+        <FichaPeca peca={ficha} aoFechar={() => setFicha(null)} aoAdicionar={adicionar} largo={largo}
+          aoAmpliar={(k) => setAmpliar({ fotos: ficha.photos, inicio: k, titulo: ficha.name })} />
+      )}
+
+      {ampliar && <Lupa {...ampliar} aoFechar={() => setAmpliar(null)} />}
 
       <Sacola aberto={verSacola} aoFechar={() => setVerSacola(false)} itens={sacola} total={totalSacola}
         mudarQtd={mudarQtd} tirar={tirar} aoFinalizar={() => { setVerSacola(false); setPasso(1); }} />
@@ -638,7 +766,7 @@ export default function Catalog() {
 }
 
 /* ----------------------------- Ficha da peça ------------------------------ */
-function FichaPeca({ peca, aoFechar, aoAdicionar, largo }) {
+function FichaPeca({ peca, aoFechar, aoAdicionar, largo, aoAmpliar }) {
   const [i, setI] = useState(0);
   const [banho, setBanho] = useState(peca.platings.find((b) => peca.banhoTem(b.id))?.id || peca.platings[0]?.id || null);
   const [aro, setAro] = useState(null);
@@ -707,6 +835,13 @@ function FichaPeca({ peca, aoFechar, aoAdicionar, largo }) {
                   ))}
                 </div>
               </>
+            )}
+
+            {peca.photos.length > 0 && (
+              <button aria-label="Ampliar foto" className="ct-btn" onClick={() => aoAmpliar && aoAmpliar(i)}
+                style={{ position: "absolute", right: 10, bottom: 10, display: "inline-flex", alignItems: "center", gap: 7, border: "none", cursor: "pointer", background: "rgba(27,16,22,.6)", color: "#fff", borderRadius: 999, padding: "9px 14px", fontSize: 13, fontWeight: 600, backdropFilter: "blur(4px)" }}>
+                <Icone n="busca" s={15} />Ampliar
+              </button>
             )}
           </Foto>
         </div>
