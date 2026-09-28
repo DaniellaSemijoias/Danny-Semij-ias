@@ -588,6 +588,7 @@ function Inicio({ ctx }) {
   const acumulado = comissoes.reduce((a, c) => a + c.value, 0);
 
   const totalPecas = pecas.reduce((a, p) => a + p.stock, 0);
+  const valorMostruario = pecas.reduce((a, p) => a + p.stock * p.price, 0);
   const baixo = pecas.filter((p) => p.stock > 0 && p.stock <= meta.settings.lowStock);
   const semEstoque = pecas.filter((p) => p.stock === 0);
 
@@ -602,7 +603,7 @@ function Inicio({ ctx }) {
         <Indicador rotulo="Vendas do mês" valor={brl(fatMes)} nota={`${pecasVendidas} peça(s)`} icone="vendas" cor={T.vinho} fundo={T.vinhoSoft} />
         <Indicador rotulo="Comissão do mês" valor={comissaoMes ? brl(comissaoMes.value) : "—"} nota={comissaoMes ? "já lançada" : "ainda não lançada"} icone="comissao" cor={T.ok} fundo={T.okSoft} />
         <Indicador rotulo="Acumulado" valor={brl(acumulado)} nota={`${comissoes.length} mês(es)`} icone="relatorios" cor={T.roxo} fundo={T.roseSoft} />
-        <Indicador rotulo="Peças no mostruário" valor={num(totalPecas)} nota={`${pecas.length} modelos`} icone="estoque" cor={T.warn} fundo={T.warnSoft} />
+        <Indicador rotulo="Peças no mostruário" valor={num(totalPecas)} nota={`${pecas.length} modelos · ${brl(valorMostruario)}`} icone="estoque" cor={T.warn} fundo={T.warnSoft} />
       </div>
 
       <div style={{ display: "flex", gap: 10, marginBottom: 22, flexWrap: "wrap" }}>
@@ -1112,6 +1113,9 @@ function Estoque({ ctx }) {
 
   const historico = useMemo(() => movs.filter((m) => !filtro || m.type === filtro), [movs, filtro]);
   const total = pecas.reduce((a, p) => a + p.stock, 0);
+  const valorTotal = pecas.reduce((a, p) => a + p.stock * p.price, 0);
+  const precoMedio = total ? valorTotal / total : 0;
+  const semEstoque = pecas.filter((p) => p.stock === 0).length;
 
   return (
     <div>
@@ -1121,6 +1125,13 @@ function Estoque({ ctx }) {
           <Botao tipo="neutro" icone="saida" onClick={() => setMov({ tipo: "EXIT" })}>Saída</Botao>
         </div>
       }>Estoque</Titulo>
+
+      <div style={{ display: "grid", gridTemplateColumns: largo ? "repeat(4,1fr)" : "repeat(2,1fr)", gap: 12, marginBottom: 16 }}>
+        <Indicador rotulo="Valor em mostruário" valor={brl(valorTotal)} nota="a preço de venda" icone="vendas" cor={T.vinho} fundo={T.vinhoSoft} />
+        <Indicador rotulo="Peças" valor={num(total)} nota={`${pecas.length} modelos`} icone="estoque" cor={T.roxo} fundo={T.roseSoft} />
+        <Indicador rotulo="Preço médio" valor={brl(precoMedio)} nota="por peça" icone="relatorios" cor={T.ok} fundo={T.okSoft} />
+        <Indicador rotulo="Esgotadas" valor={num(semEstoque)} nota="modelos zerados" icone="alerta" cor={T.err} fundo={T.errSoft} />
+      </div>
 
       <div style={{ position: "relative", marginBottom: 14 }}>
         <span style={{ position: "absolute", left: 12, top: 12, color: T.ink3 }}><Icone n="busca" s={16} /></span>
@@ -1139,7 +1150,9 @@ function Estoque({ ctx }) {
                   <Miniatura url={p.photos[0]} s={44} raio={11} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13.5, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</div>
-                    <div style={{ fontSize: 12, color: T.ink3 }}>{p.sku} · {p.variations.length} variação(ões)</div>
+                    <div style={{ fontSize: 12, color: T.ink3 }}>
+                      {brl(p.price)} · {p.stock > 0 ? `${brl(p.stock * p.price)} parados` : "sem estoque"}
+                    </div>
                   </div>
                   <Selo cor={zerado ? T.err : baixo ? T.warn : T.ok} fundo={zerado ? T.errSoft : baixo ? T.warnSoft : T.okSoft}>{p.stock}</Selo>
                   <Botao tamanho="s" tipo="suave" onClick={() => setMov({ tipo: "ENTRY", pecaId: p.id })}>+</Botao>
@@ -1861,6 +1874,22 @@ function Relatorios({ ctx }) {
     return [...mapa.values()].sort((a, b) => b.qtd - a.qtd);
   }, [vendas]);
 
+  const valorEstoque = pecas.reduce((a, p) => a + p.stock * p.price, 0);
+  const pecasEstoque = pecas.reduce((a, p) => a + p.stock, 0);
+
+  /* Quanto ela tem parado em mostruário, separado por categoria */
+  const estoquePorCategoria = useMemo(() => {
+    const mapa = new Map();
+    pecas.forEach((p) => {
+      if (p.stock === 0) return;
+      const nome = ctx.categoria(p.categoryId)?.name || "Outros";
+      const a = mapa.get(nome) || { nome, qtd: 0, valor: 0 };
+      a.qtd += p.stock; a.valor += p.stock * p.price; mapa.set(nome, a);
+    });
+    return [...mapa.values()].sort((a, b) => b.valor - a.valor);
+  }, [pecas]);
+
+  const maxEstoque = Math.max(1, ...estoquePorCategoria.map((p) => p.valor));
   const maxPeca = Math.max(1, ...porPeca.map((p) => p.valor));
   const maxCat = Math.max(1, ...porCategoria.map((p) => p.valor));
   const maxBanho = Math.max(1, ...porBanho.map((p) => p.qtd));
@@ -1886,6 +1915,17 @@ function Relatorios({ ctx }) {
         <Indicador rotulo="Comissão acumulada" valor={brl(acumulado)} nota={`${comissoes.length} mês(es)`} icone="comissao" cor={T.warn} fundo={T.warnSoft} />
       </div>
 
+      <Cartao style={{ padding: largo ? 22 : 18, marginBottom: 22, background: T.bg2, border: "none", display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+        <span style={{ width: 46, height: 46, borderRadius: 15, background: "#fff", color: T.vinho, display: "grid", placeItems: "center", flexShrink: 0 }}>
+          <Icone n="estoque" s={21} />
+        </span>
+        <div style={{ flex: 1, minWidth: 180 }}>
+          <div style={{ fontSize: 13, color: T.ink2, fontWeight: 500 }}>Parado no mostruário agora</div>
+          <div style={{ fontFamily: SERIF, fontSize: largo ? 30 : 26, fontWeight: 600, color: T.vinho, lineHeight: 1.15 }}>{brl(valorEstoque)}</div>
+          <div style={{ fontSize: 12.5, color: T.ink3 }}>{num(pecasEstoque)} peça(s) a preço de venda</div>
+        </div>
+      </Cartao>
+
       <div style={{ display: "grid", gridTemplateColumns: largo ? "1fr 1fr" : "1fr", gap: 16 }}>
         <div>
           <Titulo sub="Quem trouxe mais dinheiro">Peças que mais venderam</Titulo>
@@ -1906,6 +1946,14 @@ function Relatorios({ ctx }) {
           <Cartao style={{ padding: 6, marginBottom: 18 }}>
             {porBanho.length === 0 && <Vazio icone="relatorios">Sem vendas no período.</Vazio>}
             {porBanho.map((p, i) => <Barra key={i} rotulo={p.nome} valor={p.qtd} maximo={maxBanho} texto={`${p.qtd} un. · ${brl(p.valor)}`} cor={p.hex || T.rose} />)}
+          </Cartao>
+
+          <Titulo sub="Quanto tem parado em cada tipo">Estoque por categoria</Titulo>
+          <Cartao style={{ padding: 6, marginBottom: 18 }}>
+            {estoquePorCategoria.length === 0 && <Vazio icone="estoque">Nada no mostruário.</Vazio>}
+            {estoquePorCategoria.map((p, i) => (
+              <Barra key={i} rotulo={p.nome} valor={p.valor} maximo={maxEstoque} texto={`${p.qtd} un. · ${brl(p.valor)}`} cor={T.warn} />
+            ))}
           </Cartao>
 
           <Titulo sub="Mês a mês, o que você recebeu">Comissão</Titulo>
@@ -1983,8 +2031,8 @@ function Ajustes({ ctx }) {
   const recarregaDepois = (fn) => async (...args) => { await fn(...args); await recarregarMeta(); };
 
   const exportarPecas = () => baixarCSV("pecas-danny.csv", [
-    ["Código", "Peça", "Categoria", "Preço", "Quilates", "Garantia", "Estoque"],
-    ...pecas.map((p) => [p.sku, p.name, ctx.categoria(p.categoryId)?.name || "", p.price, p.karat, p.warranty, p.stock]),
+    ["Código", "Peça", "Categoria", "Preço", "Quilates", "Garantia", "Estoque", "Valor em estoque"],
+    ...pecas.map((p) => [p.sku, p.name, ctx.categoria(p.categoryId)?.name || "", p.price, p.karat, p.warranty, p.stock, p.stock * p.price]),
   ]);
 
   const exportarVendas = () => baixarCSV("vendas-danny.csv", [
