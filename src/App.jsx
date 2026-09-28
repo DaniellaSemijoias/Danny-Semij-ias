@@ -36,11 +36,11 @@ const mesNome = (iso) => {
 /* --------------------------------- Ícones --------------------------------- */
 const ICONES = {
   inicio: "M3 10.5 12 3l9 7.5M5.5 9.5V20a1 1 0 0 0 1 1h4v-6h3v6h4a1 1 0 0 0 1-1V9.5",
-  pecas: "m12 2 3 5h6l-4.5 4.5L18 22l-6-3.5L6 22l1.5-10.5L3 7h6z",
+  pecas: "M6 3h12l3 6-9 12-9-12zM3 9h18M9 3 6 9l6 12M15 3l3 6-6 12",
   estoque: "M21 8 12 3 3 8v8l9 5 9-5zM3 8l9 5 9-5M12 13v8",
-  vendas: "M3 6h18a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6",
-  clientes: "M16 20v-1.5a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4V20M9.5 10.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7M21 20v-1.5a4 4 0 0 0-3-3.85",
-  comissao: "M12 2v20M17 6.5c0-1.9-2.2-3-5-3s-5 1-5 3 2 2.6 5 3.2 5 1.4 5 3.3-2.2 3-5 3-5-1.1-5-3",
+  vendas: "M20.6 13.4 12 22l-9-9V4a1 1 0 0 1 1-1h8l8.6 8.6a2 2 0 0 1 0 2.8M7.5 7.5h.01",
+  clientes: "M16 20v-1.5a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4V20M9.5 10.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7M21 20v-1.5a4 4 0 0 0-3-3.85M16.5 3.8a3.5 3.5 0 0 1 0 6.4",
+  comissao: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18M12 6.5v11M14.3 9.6c0-1-1-1.8-2.3-1.8s-2.3.8-2.3 1.8 1 1.5 2.3 1.9 2.3.9 2.3 1.9-1 1.8-2.3 1.8-2.3-.8-2.3-1.8",
   relatorios: "M3 3v16a2 2 0 0 0 2 2h16M7.5 15.5v-3M12 15.5v-7M16.5 15.5v-5",
   ajustes: "M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7M19.4 14a1.5 1.5 0 0 0 .3 1.7l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.5 1.5 0 0 0-2.5 1v.3a2 2 0 1 1-4 0V19a1.5 1.5 0 0 0-2.6-1l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.5 1.5 0 0 0-1-2.5H4a2 2 0 1 1 0-4h.2a1.5 1.5 0 0 0 1-2.6l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.5 1.5 0 0 0 2.5-1V4a2 2 0 1 1 4 0v.2a1.5 1.5 0 0 0 2.5 1l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.5 1.5 0 0 0 1 2.5h.2a2 2 0 1 1 0 4H20a1.5 1.5 0 0 0-1.4 1z",
   mais: "M12 5v14M5 12h14",
@@ -243,13 +243,29 @@ function Aviso({ msg }) {
   );
 }
 
+/* O bucket pode ter o arquivo como icone.jpg, ICONE.JPG, Icone.jpeg…
+   Tenta as grafias até uma carregar; se nenhuma vier, usa o monograma. */
+const VARIANTES = (nome) => {
+  const bases = [nome, nome.toUpperCase(), nome.charAt(0).toUpperCase() + nome.slice(1)];
+  const exts = ["jpg", "jpeg", "png", "webp", "JPG", "JPEG", "PNG"];
+  const lista = [];
+  bases.forEach((b) => exts.forEach((e) => lista.push(ARQUIVOS + encodeURIComponent(`${b}.${e}`))));
+  return [...new Set(lista)];
+};
+
+function ImgArquivo({ nome, alt, style, reserva }) {
+  const urls = useMemo(() => VARIANTES(nome), [nome]);
+  const [k, setK] = useState(0);
+  if (k >= urls.length) return reserva || null;
+  return <img src={urls[k]} alt={alt} onError={() => setK(k + 1)} style={style} />;
+}
+
 function Marca({ s = 36 }) {
-  const [falhou, setFalhou] = useState(false);
   const base = { width: s, height: s, borderRadius: 12, flexShrink: 0, objectFit: "cover", border: `1px solid ${T.line}` };
-  if (falhou) {
-    return <div style={{ ...base, background: T.vinho, border: "none", display: "grid", placeItems: "center", color: "#fff", fontFamily: SERIF, fontWeight: 700, fontSize: s * 0.42 }}>D</div>;
-  }
-  return <img src={ARQUIVOS + "icone.jpg"} alt="Danny" onError={() => setFalhou(true)} style={base} />;
+  const monograma = (
+    <div style={{ ...base, background: T.vinho, border: "none", display: "grid", placeItems: "center", color: "#fff", fontFamily: SERIF, fontWeight: 700, fontSize: s * 0.42 }}>D</div>
+  );
+  return <ImgArquivo nome="icone" alt="Danny" style={base} reserva={monograma} />;
 }
 
 function Indicador({ rotulo, valor, nota, icone, cor, fundo }) {
@@ -513,8 +529,9 @@ function Login({ avisar }) {
       <div className="dn-up" style={{ width: "100%", maxWidth: 390 }}>
         <div style={{ textAlign: "center", marginBottom: 24 }}>
           {logo ? (
-            <img src={ARQUIVOS + "logo.jpg"} alt="Danny Semijoias" onError={() => setLogo(false)}
-              style={{ width: "100%", maxWidth: 320, borderRadius: 16, marginBottom: 16, boxShadow: SOMBRA }} />
+            <ImgArquivo nome="logo" alt="Danny Semijoias"
+              style={{ width: "100%", maxWidth: 320, borderRadius: 16, marginBottom: 16, boxShadow: SOMBRA }}
+              reserva={<Marca s={72} />} />
           ) : (
             <>
               <h1 style={{ fontFamily: SERIF, fontSize: 30, fontWeight: 600, color: T.vinho, margin: "0 0 4px" }}>Danny Semijoias</h1>
