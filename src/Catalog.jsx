@@ -35,6 +35,12 @@ const ICONES = {
   cartao: "M3 6h18a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1M2 10h20",
   joia: "m12 2 3 5h6l-4.5 4.5L18 22l-6-3.5L6 22l1.5-10.5L3 7h6z",
   instagram: "M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8M17 3H7a4 4 0 0 0-4 4v10a4 4 0 0 0 4 4h10a4 4 0 0 0 4-4V7a4 4 0 0 0-4-4M17.5 6.5h.01",
+  seta: "M12 5v14M19 12l-7 7-7-7",
+  gota: "M12 2.7 6.8 9a7 7 0 1 0 10.4 0z",
+  brilho: "M12 3v4M12 17v4M3 12h4M17 12h4M6.3 6.3l2.8 2.8M14.9 14.9l2.8 2.8M17.7 6.3l-2.8 2.8M9.1 14.9l-2.8 2.8",
+  coracao: "M12 20.5 4.6 13a4.6 4.6 0 0 1 6.5-6.5l.9.9.9-.9A4.6 4.6 0 0 1 19.4 13z",
+  estrela: "m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.5 9.7l5.9-.9z",
+  caixa: "M21 8 12 3 3 8v8l9 5 9-5zM3 8l9 5 9-5M12 13v8",
 };
 function Icone({ n, s = 18, cor = "currentColor", w = 1.75, style }) {
   return (
@@ -59,6 +65,12 @@ input,select,textarea,button{font-family:inherit}
 .ct-card:hover{box-shadow:0 10px 26px rgba(59,34,48,.1)}
 .ct-in{transition:border-color .16s ease,box-shadow .16s ease}
 .ct-in:focus{outline:none;border-color:${T.vinho};box-shadow:0 0 0 3px rgba(107,31,74,.12)}
+@keyframes ctKenA{from{transform:scale(1.05) translate(0,0)}to{transform:scale(1.22) translate(-2.5%,-2%)}}
+@keyframes ctKenB{from{transform:scale(1.22) translate(2.5%,1.5%)}to{transform:scale(1.05) translate(0,0)}}
+@keyframes ctSobe{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+@keyframes ctFlutua{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+@keyframes ctPula{0%,100%{transform:translateY(0);opacity:.75}50%{transform:translateY(7px);opacity:1}}
+.ct-sobe{animation:ctSobe .7s cubic-bezier(.16,1,.3,1) both}
 `;
 
 /* ------------------------- Abertura (ABERTURA 01 a 06) -------------------- */
@@ -88,49 +100,174 @@ function achaQuadro(urls) {
   });
 }
 
-function Abertura({ aoTerminar }) {
-  const [quadros, setQuadros] = useState(null);
+/* Quanto da altura de cada quadro da abertura é jogado fora embaixo, em %.
+   Serve para cortar a marca d'água do gerador de imagens no rodapé da foto.
+   Se ainda aparecer um pedacinho, aumente para 12, 14…; se cortar demais,
+   diminua para 8, 6. */
+const CORTE_RODAPE = 10;
+
+function Logo({ s = 88 }) {
+  const [falhou, setFalhou] = useState(false);
+  const base = { width: s, height: s, borderRadius: "50%", objectFit: "cover", flexShrink: 0,
+    border: "2px solid rgba(255,255,255,.85)", boxShadow: "0 8px 26px rgba(59,34,48,.28)" };
+  if (falhou) {
+    return (
+      <div style={{ ...base, background: T.vinho, display: "grid", placeItems: "center", color: "#fff", fontFamily: SERIF, fontWeight: 700, fontSize: s * 0.42 }}>D</div>
+    );
+  }
+  return <img src={ARQUIVOS + "icone.jpg"} alt="" onError={() => setFalhou(true)} style={base} />;
+}
+
+function Abertura({ aoTerminar, loja }) {
+  const [quadros, setQuadros] = useState([]);
   const [i, setI] = useState(0);
   const [saindo, setSaindo] = useState(false);
+  const [pronto, setPronto] = useState(false);
 
+  /* Procura os quadros. Nada aparece antes de carregar — sem imagem quebrada. */
   useEffect(() => {
     let vivo = true;
-    const desistir = setTimeout(() => { if (vivo) aoTerminar(); }, 5000);
+    const desistir = setTimeout(() => { if (vivo) setPronto(true); }, 6000);
     Promise.all([1, 2, 3, 4, 5, 6].map((n) => achaQuadro(NOMES_ABERTURA(n)))).then((achados) => {
       if (!vivo) return;
       clearTimeout(desistir);
-      const ok = achados.filter(Boolean);
-      if (ok.length < 2) return aoTerminar();
-      setQuadros(ok);
+      setQuadros(achados.filter(Boolean));
+      setPronto(true);
     });
     return () => { vivo = false; clearTimeout(desistir); };
   }, []);
 
+  /* Os quadros vão passando devagar, em laço, com zoom lento. */
   useEffect(() => {
-    if (!quadros) return;
-    if (i < quadros.length - 1) {
-      const t = setTimeout(() => setI(i + 1), 400);
-      return () => clearTimeout(t);
-    }
-    const t1 = setTimeout(() => setSaindo(true), 750);
-    const t2 = setTimeout(aoTerminar, 1200);
-    return () => { clearTimeout(t1); clearTimeout(t2); };
-  }, [quadros, i]);
+    if (quadros.length < 2) return;
+    const t = setInterval(() => setI((k) => (k + 1) % quadros.length), 4200);
+    return () => clearInterval(t);
+  }, [quadros]);
+
+  const sair = () => { setSaindo(true); setTimeout(aoTerminar, 520); };
 
   return (
-    <div onClick={aoTerminar}
-      style={{ position: "fixed", top: 0, right: 0, bottom: 0, left: 0, height: "100dvh", zIndex: 200, background: T.bg, display: "grid", placeItems: "center", cursor: "pointer", opacity: saindo ? 0 : 1, transition: "opacity .45s ease" }}>
-      {quadros ? (
-        <>
-          <img src={quadros[i]} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
-          <div style={{ position: "absolute", left: 0, right: 0, bottom: "calc(22px + env(safe-area-inset-bottom,0px))", textAlign: "center", fontSize: 12, color: T.ink3, letterSpacing: .3 }}>
-            toque para pular
-          </div>
-        </>
-      ) : (
-        <img src={ARQUIVOS + "icone.jpg"} alt="" style={{ width: 62, height: 62, borderRadius: 18, objectFit: "cover" }} />
-      )}
+    <div style={{ position: "fixed", top: 0, right: 0, bottom: 0, left: 0, height: "100dvh", zIndex: 200, overflow: "hidden", background: T.vinho, opacity: saindo ? 0 : 1, transition: "opacity .5s ease" }}>
+      {/* fotos ao fundo */}
+      {quadros.map((url, k) => (
+        <img key={url} src={url} alt=""
+          style={{ position: "absolute", top: 0, right: 0, left: 0, width: "100%",
+            height: `${100 + CORTE_RODAPE}%`, objectFit: "cover", objectPosition: "center top",
+            opacity: k === i ? 1 : 0, transition: "opacity 1.3s ease",
+            animation: `${k % 2 ? "ctKenB" : "ctKenA"} 9s ease-out both`,
+            animationPlayState: k === i ? "running" : "paused" }} />
+      ))}
+
+      {/* véu para o texto ficar legível */}
+      <div style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0,
+        background: "linear-gradient(180deg, rgba(59,34,48,.55) 0%, rgba(59,34,48,.25) 35%, rgba(59,34,48,.82) 100%)" }} />
+
+      {/* moldura fina */}
+      <div style={{ position: "absolute", top: 14, right: 14, bottom: 14, left: 14, border: "1px solid rgba(255,255,255,.35)", borderRadius: 18, pointerEvents: "none" }} />
+
+      {/* conteúdo */}
+      <div style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", padding: "40px 28px calc(40px + env(safe-area-inset-bottom,0px))", color: "#fff" }}>
+        {pronto && (
+          <>
+            <div className="ct-sobe"><Logo s={92} /></div>
+
+            <h1 className="ct-sobe" style={{ fontFamily: SERIF, fontSize: 34, fontWeight: 600, margin: "20px 0 0", letterSpacing: .3, animationDelay: ".1s", textShadow: "0 2px 18px rgba(0,0,0,.35)" }}>
+              {loja.storeName || "Danny Semijoias"}
+            </h1>
+
+            <div className="ct-sobe" style={{ fontSize: 15, color: "rgba(255,255,255,.9)", marginTop: 6, fontStyle: "italic", animationDelay: ".18s" }}>
+              {loja.tagline || "seu estilo merece brilhar"}
+            </div>
+
+            <div className="ct-sobe" style={{ width: 54, height: 1, background: "rgba(255,255,255,.5)", margin: "22px 0", animationDelay: ".26s" }} />
+
+            <p className="ct-sobe" style={{ fontFamily: SERIF, fontSize: 21, lineHeight: 1.45, maxWidth: 330, margin: 0, fontWeight: 500, animationDelay: ".32s", textShadow: "0 2px 18px rgba(0,0,0,.3)" }}>
+              Seja bem-vinda.<br />Escolha com calma — cada peça foi separada pensando em você.
+            </p>
+
+            <div className="ct-sobe" style={{ marginTop: 28, animationDelay: ".42s" }}>
+              <button onClick={sair} className="ct-btn"
+                style={{ border: "none", background: "#fff", color: T.vinho, borderRadius: 999, padding: "15px 30px", fontSize: 15.5, fontWeight: 700, cursor: "pointer", boxShadow: "0 10px 30px rgba(0,0,0,.28)" }}>
+                Ver a coleção
+              </button>
+            </div>
+
+            <div style={{ position: "absolute", left: 0, right: 0, bottom: "calc(26px + env(safe-area-inset-bottom,0px))", display: "flex", justifyContent: "center", color: "rgba(255,255,255,.85)", animation: "ctPula 1.9s ease-in-out infinite" }}>
+              <Icone n="seta" s={22} />
+            </div>
+          </>
+        )}
+      </div>
     </div>
+  );
+}
+
+/* --------------------- Seção "Seja bem-vinda" do catálogo ----------------- */
+function BemVinda({ loja }) {
+  const cartoes = [
+    { icone: "joia", titulo: "Peça escolhida a dedo", texto: "Cada modelo é selecionado pensando no que fica bonito no dia a dia." },
+    { icone: "escudo", titulo: "Com garantia", texto: "Defeito de fabricação a gente resolve. É só falar comigo." },
+    { icone: "whats", titulo: "Atendimento no WhatsApp", texto: "Monte sua sacola aqui e finalize a compra comigo, sem pressa." },
+  ];
+  return (
+    <section style={{ padding: "26px 16px 6px" }}>
+      <div style={{ textAlign: "center", marginBottom: 20 }}>
+        <div style={{ fontSize: 12.5, letterSpacing: 1.4, textTransform: "uppercase", color: T.rose, fontWeight: 700 }}>Seja bem-vinda</div>
+        <h2 style={{ fontFamily: SERIF, fontSize: 25, fontWeight: 600, margin: "6px 0 0" }}>Feito para brilhar com você</h2>
+        <div style={{ fontSize: 13.5, color: T.ink2, marginTop: 6, maxWidth: 420, marginLeft: "auto", marginRight: "auto", lineHeight: 1.6 }}>
+          {loja.tagline || "seu estilo merece brilhar"}
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gap: 10 }}>
+        {cartoes.map((c, k) => (
+          <div key={k} style={{ display: "flex", alignItems: "center", gap: 13, background: "#fff", border: `1px solid ${T.line}`, borderRadius: 16, padding: "14px 15px", boxShadow: SOMBRA }}>
+            <span style={{ width: 44, height: 44, borderRadius: "50%", background: T.vinhoSoft, color: T.vinho, display: "grid", placeItems: "center", flexShrink: 0, animation: "ctFlutua 3.4s ease-in-out infinite", animationDelay: `${k * 0.35}s` }}>
+              <Icone n={c.icone} s={19} />
+            </span>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 14.5, fontWeight: 600 }}>{c.titulo}</div>
+              <div style={{ fontSize: 13, color: T.ink2, lineHeight: 1.55, marginTop: 2 }}>{c.texto}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/* ------------------- Seção "Sobre o banho das suas peças" ----------------- */
+function SobreBanho() {
+  const cartoes = [
+    { icone: "brilho", titulo: "O banho pode perder o brilho", texto: "É normal e acontece com toda semijoia. O tempo que dura depende do uso, do suor, de perfume e de produtos químicos." },
+    { icone: "gota", titulo: "Escurecer não é ferrugem", texto: "Semijoia não enferruja. Quando escurece, é o banho reagindo ao contato com água, creme ou perfume." },
+    { icone: "estrela", titulo: "Pequenas diferenças são normais", texto: "O tom e o brilho podem variar um pouquinho entre peças e em relação à foto — cada banho reage do seu jeito." },
+    { icone: "escudo", titulo: "O que a garantia cobre", texto: "Defeito de fabricação: fecho que solta, solda que abre, pedra que cai sozinha. Não cobre perda de cor pelo uso, queda ou contato com água e química." },
+  ];
+  return (
+    <section style={{ background: "#fff", borderTop: `1px solid ${T.line}`, padding: "30px 16px 26px" }}>
+      <div style={{ maxWidth: 1080, margin: "0 auto" }}>
+        <div style={{ textAlign: "center", marginBottom: 20 }}>
+          <div style={{ fontSize: 12.5, letterSpacing: 1.4, textTransform: "uppercase", color: T.rose, fontWeight: 700 }}>Bom saber</div>
+          <h2 style={{ fontFamily: SERIF, fontSize: 25, fontWeight: 600, margin: "6px 0 0" }}>Sobre o banho das suas peças</h2>
+          <div style={{ fontSize: 13.5, color: T.ink2, marginTop: 6 }}>Com um cuidado simples, elas duram muito mais.</div>
+        </div>
+
+        <div style={{ display: "grid", gap: 10, gridTemplateColumns: "1fr" }}>
+          {cartoes.map((c, k) => (
+            <div key={k} style={{ display: "flex", gap: 13, background: T.bg, borderRadius: 16, padding: "15px 16px" }}>
+              <span style={{ width: 38, height: 38, borderRadius: 12, background: "#fff", color: T.vinho, display: "grid", placeItems: "center", flexShrink: 0 }}>
+                <Icone n={c.icone} s={18} />
+              </span>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 14.5, fontWeight: 600 }}>{c.titulo}</div>
+                <div style={{ fontSize: 13, color: T.ink2, lineHeight: 1.6, marginTop: 3 }}>{c.texto}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -287,9 +424,9 @@ export default function Catalog() {
 
   if (abertura) {
     return (
-      <div style={{ fontFamily: FONT, background: T.bg, minHeight: "100vh" }}>
+      <div style={{ fontFamily: FONT, background: T.vinho, minHeight: "100vh" }}>
         <style>{CSS}</style>
-        <Abertura aoTerminar={() => setAbertura(false)} />
+        <Abertura aoTerminar={() => setAbertura(false)} loja={loja} />
       </div>
     );
   }
@@ -299,7 +436,7 @@ export default function Catalog() {
       <div style={{ fontFamily: FONT, background: T.bg, minHeight: "100vh", display: "grid", placeItems: "center" }}>
         <style>{CSS}</style>
         <div style={{ textAlign: "center", color: T.ink3 }}>
-          <img src={ARQUIVOS + "icone.jpg"} alt="" style={{ width: 62, height: 62, borderRadius: 18, objectFit: "cover" }} />
+          <Logo s={62} />
           <div style={{ marginTop: 14, fontSize: 13.5 }}>Abrindo a vitrine…</div>
         </div>
       </div>
@@ -352,6 +489,8 @@ export default function Catalog() {
       </header>
 
       {/* ---------------------------- Os trilhos ---------------------------- */}
+      <BemVinda loja={loja} />
+
       <main style={{ maxWidth: 1080, margin: "0 auto", padding: "20px 0 10px" }}>
         {porCategoria.length === 0 && (
           <div style={{ textAlign: "center", padding: "60px 24px", color: T.ink2 }}>
@@ -400,6 +539,8 @@ export default function Catalog() {
           </section>
         ))}
       </main>
+
+      <SobreBanho />
 
       {/* ------------------------------ Rodapé ------------------------------ */}
       <footer style={{ borderTop: `1px solid ${T.line}`, background: "#fff", padding: "22px 16px 28px", textAlign: "center" }}>
@@ -661,7 +802,15 @@ function Cuidados({ aberto, aoFechar, texto, aoSeguir }) {
   const [ciente, setCiente] = useState(false);
   useEffect(() => { if (aberto) setCiente(false); }, [aberto]);
 
-  const padrao = "Evite contato com perfume, cremes, álcool, cloro e produtos de limpeza. Tire as peças para dormir, tomar banho, nadar ou fazer academia. Guarde cada peça separada, em lugar seco e longe do sol. Limpe só com flanela macia e seca. Com esses cuidados o banho dura muito mais.";
+  const padrao = `Todas as peças são semijoias banhadas — elas não podem molhar.
+
+• Tire antes do banho, da piscina, do mar e da academia. Água e suor tiram o brilho do banho.
+• Perfume, creme e álcool por último, longe da peça. Espere secar antes de colocar.
+• Nada de produto de limpeza, cloro ou água sanitária.
+• Guarde cada peça separada, num saquinho, em lugar seco e longe do sol.
+• Para limpar, só flanela macia e seca.
+
+Garantia: cobre defeito de fabricação — fecho que solta, solda que abre, pedra que cai sozinha. Não cobre perda de cor pelo uso, queda, amassado ou contato com água e produtos químicos.`;
 
   return (
     <Folha aberto={aberto} aoFechar={aoFechar} titulo="Cuidados e garantia" sub="Leia antes de fechar o pedido"
