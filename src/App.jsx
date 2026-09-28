@@ -1283,10 +1283,21 @@ function FormMovimento({ ctx, inicial, aoFechar }) {
    =========================================================================== */
 
 const soDigitos = (t) => String(t || "").replace(/\D/g, "");
+/* Monta o número no formato que o WhatsApp exige: 55 + DDD + número.
+   Devolve vazio se o telefone não tiver tamanho de celular — assim o botão
+   não abre um link quebrado. */
+function numeroZap(fone) {
+  let n = soDigitos(fone);
+  if (n.startsWith("0")) n = n.replace(/^0+/, "");
+  if (n.length >= 12 && n.startsWith("55")) return n;
+  if (n.length === 10 || n.length === 11) return "55" + n;
+  return "";
+}
+
 const zapLink = (fone, texto) => {
-  const n = soDigitos(fone);
-  const completo = n.length <= 11 ? `55${n}` : n;
-  return `https://wa.me/${completo}${texto ? `?text=${encodeURIComponent(texto)}` : ""}`;
+  const n = numeroZap(fone);
+  if (!n) return "";
+  return `https://wa.me/${n}${texto ? `?text=${encodeURIComponent(texto)}` : ""}`;
 };
 
 function baixarCSV(nome, linhas) {
@@ -1602,7 +1613,7 @@ function FichaCliente({ ctx, cliente, aoFechar, aoEditar, aoExcluir }) {
     <Modal aberto aoFechar={aoFechar} titulo={cliente.name} sub={cliente.phone || "sem telefone"}
       rodape={
         <>
-          {cliente.phone && (
+          {numeroZap(cliente.phone) && (
             <Botao tipo="zap" icone="whats" onClick={() => window.open(zapLink(cliente.phone, `Oi, ${cliente.name}! `), "_blank")}>WhatsApp</Botao>
           )}
           <Botao tipo="neutro" icone="editar" onClick={() => aoEditar(cliente)} style={{ flex: 1 }}>Editar</Botao>
@@ -2065,7 +2076,7 @@ function Ajustes({ ctx }) {
           <Campo label="Slogan"><Entrada value={s.tagline} onChange={(e) => muda("tagline", e.target.value)} /></Campo>
         </div>
         <div className="dn-2col">
-          <Campo label="WhatsApp" dica="Só números, com DDD"><Entrada inputMode="tel" value={s.whatsapp} onChange={(e) => muda("whatsapp", e.target.value)} placeholder="34999955420" /></Campo>
+          <Campo label="WhatsApp" dica="DDD + número. É para onde vão os pedidos do catálogo"><Entrada inputMode="tel" value={s.whatsapp} onChange={(e) => muda("whatsapp", e.target.value)} placeholder="34999955420" /></Campo>
           <Campo label="Instagram"><Entrada value={s.instagram} onChange={(e) => muda("instagram", e.target.value)} placeholder="@dannysemijoias" /></Campo>
         </div>
         <Campo label="Avisar estoque baixo a partir de" dica="Quantidade que acende o alerta na tela Início">
