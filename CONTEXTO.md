@@ -58,17 +58,17 @@ erro de laço infinito no deploy — já aconteceu na Udiflex).
 
 | Arquivo | Linhas | Situação |
 |---|---|---|
-| `index.html` | 28 | pronto — fontes, ícones, manifesto e registro do service worker |
+| `index.html` | 29 | pronto — fontes, ícones locais, manifesto e service worker |
 | `package.json` | 16 | pronto |
 | `vite.config.js` | 4 | pronto |
 | `wrangler.toml` | 7 | pronto |
-| `public/manifest.json` | 15 | pronto |
+| `public/manifest.json` | 16 | pronto — ícones locais, com `maskable` |
 | `public/sw.js` | 44 | pronto — só para o Chrome oferecer "Instalar" |
 | `src/config.js` | 6 | pronto, já com as chaves |
 | `src/main.jsx` | 9 | pronto — `/catalogo` abre o Catalog, o resto abre o App |
 | `src/api.js` | 305 | pronto |
-| `src/App.jsx` | 2145 | pronto — as 8 telas |
-| `src/Catalog.jsx` | 1116 | pronto |
+| `src/App.jsx` | 2156 | pronto — as 8 telas |
+| `src/Catalog.jsx` | 1133 | pronto |
 
 ## Banco (Supabase)
 
@@ -78,6 +78,7 @@ Scripts rodados, nesta ordem:
 2. `admin.sql` — garante perfil para toda conta de login e promove a Daniella a admin.
 3. `banhos.sql` — tirou "Aço inoxidável" e "Aço inoxidável dourado", acrescentou Banho Rosé.
 4. `prata.sql` — acrescentou **Prata 925**.
+5. `whatsapp.sql` — preencheu `settings`: nome, slogan, **whatsapp `5534999955420`** e instagram.
 
 Tabelas: `profiles`, `categories`, `platings` (acabamentos), `sizes` (aros), `karats`
 (quilates), `customers`, `settings`, `products`, `product_images`, `product_variations`
@@ -154,9 +155,25 @@ material — ouro 18k de verdade, por exemplo — é lá que se mexe.
   925, e o que a garantia cobre.
 - **Rodapé:** nome da loja + **"Programa feito por Miguel Borges — (34) 9 9188-1557"**.
 
+## WhatsApp — o link dos pedidos
+
+O número fica em **Ajustes → WhatsApp** e o catálogo monta o link com a função
+`numeroZap` (existe no `Catalog.jsx` e no `App.jsx`). Ela aceita qualquer formato que a
+dona digitar — `34999955420`, `(34) 99995-5420`, `5534999955420`, `+55 34 99995-5420` —
+e devolve sempre `55 + DDD + número`. No catálogo, se o campo estiver vazio ou incompleto,
+cai na constante **`WHATSAPP_PADRAO`** (`5534999955420`), para o pedido nunca quebrar.
+
+**O erro que isso resolveu:** com o campo vazio, o link saía como `wa.me/55` e o WhatsApp
+respondia que o número era curto demais — o pedido não chegava.
+
 ## Instalação no celular (PWA)
 
-- **iPhone:** Safari → Compartilhar → Adicionar à Tela de Início (usa o `apple-touch-icon`).
+- **Os ícones são servidos pelo próprio site** (`public/icone-192.png` e
+  `public/icone-512.png`), não pelo bucket. Antes o manifesto apontava para o Supabase, os
+  arquivos davam 404 por causa da grafia do nome, e **sem ícone o Chrome não oferece
+  instalar**. O manifesto tem também uma entrada `maskable`, que é o formato do Android.
+- **iPhone:** Safari → Compartilhar → Adicionar à Tela de Início (usa o `apple-touch-icon`,
+  que aponta para `/icone-512.png`). Pelo Chrome do iPhone a opção muitas vezes nem aparece.
 - **Android e computador:** o `public/sw.js` existe só para o Chrome oferecer "Instalar".
   Só funciona em `https`, ou seja, no endereço do Cloudflare.
 - O service worker busca a página **na rede primeiro**, então ninguém fica preso numa
@@ -212,6 +229,9 @@ certo no Supabase.
   Relatórios, Ajustes), `Catalog.jsx` criado, `admin.sql` para promover a Daniella,
   `sw.js` + registro no `index.html` para instalação no Android e no computador,
   publicado no Cloudflare Workers.
+- **28/09/2026 (fim do dia, 2):** link do WhatsApp blindado (`numeroZap` + `WHATSAPP_PADRAO`)
+  — o pedido do catálogo quebrava com o campo vazio; ícones do PWA passaram a ser servidos
+  pelo próprio site, porque pelo bucket davam 404 e impediam a instalação.
 - **28/09/2026 (fim do dia):** ampliação de foto no catálogo, no mesmo padrão da Paixão —
   selo "Ampliar" já visível no cartão da vitrine, botão na ficha, tela cheia com
   Ampliar/Reduzir e rolagem. A primeira versão, com pinça e `scale`, foi descartada.
