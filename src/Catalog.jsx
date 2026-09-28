@@ -61,6 +61,79 @@ input,select,textarea,button{font-family:inherit}
 .ct-in:focus{outline:none;border-color:${T.vinho};box-shadow:0 0 0 3px rgba(107,31,74,.12)}
 `;
 
+/* ------------------------- Abertura (ABERTURA 01 a 06) -------------------- */
+/* Tenta alguns jeitos de escrever o nome do arquivo no bucket. O primeiro que
+   carregar é o que vale. Se nenhum carregar, o catálogo abre direto.        */
+const NOMES_ABERTURA = (n) => {
+  const num = String(n).padStart(2, "0");
+  const bases = [`ABERTURA${num}`, `ABERTURA ${num}`, `ABERTURA-${num}`, `ABERTURA_${num}`, `abertura${num}`];
+  const exts = ["JPEG", "jpeg", "JPG", "jpg", "PNG", "png"];
+  const lista = [];
+  bases.forEach((b) => exts.forEach((e) => lista.push(ARQUIVOS + encodeURIComponent(`${b}.${e}`))));
+  return lista;
+};
+
+function achaQuadro(urls) {
+  return new Promise((pronto) => {
+    let i = 0;
+    const tenta = () => {
+      if (i >= urls.length) return pronto(null);
+      const url = urls[i++];
+      const img = new Image();
+      img.onload = () => pronto(url);
+      img.onerror = tenta;
+      img.src = url;
+    };
+    tenta();
+  });
+}
+
+function Abertura({ aoTerminar }) {
+  const [quadros, setQuadros] = useState(null);
+  const [i, setI] = useState(0);
+  const [saindo, setSaindo] = useState(false);
+
+  useEffect(() => {
+    let vivo = true;
+    const desistir = setTimeout(() => { if (vivo) aoTerminar(); }, 5000);
+    Promise.all([1, 2, 3, 4, 5, 6].map((n) => achaQuadro(NOMES_ABERTURA(n)))).then((achados) => {
+      if (!vivo) return;
+      clearTimeout(desistir);
+      const ok = achados.filter(Boolean);
+      if (ok.length < 2) return aoTerminar();
+      setQuadros(ok);
+    });
+    return () => { vivo = false; clearTimeout(desistir); };
+  }, []);
+
+  useEffect(() => {
+    if (!quadros) return;
+    if (i < quadros.length - 1) {
+      const t = setTimeout(() => setI(i + 1), 400);
+      return () => clearTimeout(t);
+    }
+    const t1 = setTimeout(() => setSaindo(true), 750);
+    const t2 = setTimeout(aoTerminar, 1200);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [quadros, i]);
+
+  return (
+    <div onClick={aoTerminar}
+      style={{ position: "fixed", top: 0, right: 0, bottom: 0, left: 0, height: "100dvh", zIndex: 200, background: T.bg, display: "grid", placeItems: "center", cursor: "pointer", opacity: saindo ? 0 : 1, transition: "opacity .45s ease" }}>
+      {quadros ? (
+        <>
+          <img src={quadros[i]} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+          <div style={{ position: "absolute", left: 0, right: 0, bottom: "calc(22px + env(safe-area-inset-bottom,0px))", textAlign: "center", fontSize: 12, color: T.ink3, letterSpacing: .3 }}>
+            toque para pular
+          </div>
+        </>
+      ) : (
+        <img src={ARQUIVOS + "icone.jpg"} alt="" style={{ width: 62, height: 62, borderRadius: 18, objectFit: "cover" }} />
+      )}
+    </div>
+  );
+}
+
 /* ------------------------------- Peças base ------------------------------- */
 function Foto({ url, raio = 14, altura = "100%", children }) {
   const [falhou, setFalhou] = useState(false);
@@ -136,6 +209,7 @@ function Folha({ aberto, aoFechar, titulo, sub, children, rodape, largo }) {
 
 /* ================================ Catálogo ================================ */
 export default function Catalog() {
+  const [abertura, setAbertura] = useState(true);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState("");
   const [pecas, setPecas] = useState([]);
@@ -210,6 +284,15 @@ export default function Catalog() {
     const el = trilhos.current[cat];
     if (el) el.scrollBy({ left: lado * (el.clientWidth * 0.8), behavior: "smooth" });
   };
+
+  if (abertura) {
+    return (
+      <div style={{ fontFamily: FONT, background: T.bg, minHeight: "100vh" }}>
+        <style>{CSS}</style>
+        <Abertura aoTerminar={() => setAbertura(false)} />
+      </div>
+    );
+  }
 
   if (carregando) {
     return (
