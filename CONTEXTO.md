@@ -75,6 +75,7 @@ erro de laço infinito no deploy — já aconteceu na Udiflex).
 Scripts rodados, nesta ordem:
 
 1. `danny_schema.sql` — tudo: tabelas, funções, RLS, bucket e dados iniciais.
+2. `danny_espaco_acessos.sql` — permissão de apagar arquivo no bucket, `dn_is_admin()`, `get_storage_usage()`, `get_orphan_files()`, a tabela `catalog_visits` e as funções `log_catalog_visit()` e `get_catalog_stats()`.
 2. `admin.sql` — garante perfil para toda conta de login e promove a Daniella a admin.
 3. `banhos.sql` — tirou "Aço inoxidável" e "Aço inoxidável dourado", acrescentou Banho Rosé.
 4. `prata.sql` — acrescentou **Prata 925**.
@@ -108,7 +109,7 @@ material — ouro 18k de verdade, por exemplo — é lá que se mexe.
 - **Código (SKU):** peça nova já abre com o próximo livre (DS-001, DS-002…).
 - Quilates e garantia ficam no cadastro e aparecem na ficha.
 
-## App de gestão — as 8 telas
+## App de gestão — as 9 telas
 
 1. **Início** — vendas do mês, comissão do mês, acumulado, peças no mostruário **com o
    valor total**, movimentações recentes e alertas de estoque baixo ou zerado.
@@ -179,6 +180,19 @@ respondia que o número era curto demais — o pedido não chegava.
 - O service worker busca a página **na rede primeiro**, então ninguém fica preso numa
   versão antiga depois de um deploy.
 
+## Espaço do Supabase e acessos ao catálogo
+
+O plano gratuito guarda **1 GB**. Foto de celular tem de 3 a 8 MB, então sem tratamento o espaço acabaria em 150 a 300 fotos. O que foi feito (mesma receita usada na Udiflex e nos outros apps):
+
+1. **A foto encolhe sozinha antes de subir.** Em `api.js`, `uploadFile` chama `encolherImagem`: desenha num canvas com no máximo 1600 pixels no lado maior e salva em WebP (ou JPEG, se o navegador não gerar WebP) com qualidade 0,82. Cada foto cai para 200 a 350 KB e na tela não muda nada. Se algo falhar, sobe o arquivo original em vez de quebrar o cadastro. **Nunca contar com a pessoa editar a foto antes** — quem cadastra é a Daniella, no meio do dia.
+2. **Apagar apaga de verdade.** `removeFiles` tira o arquivo do Storage quando a foto é removida no formulário, quando é trocada e quando a peça é excluída. Antes só o endereço saía do banco e o arquivo ficava para sempre.
+3. **Medidor em Ajustes** (só admin): barra com a porcentagem do 1 GB, divisão por pasta e o botão **Limpar arquivos sem uso**.
+4. **Quem é "sem uso":** a função `get_orphan_files()` só lista o que está na pasta `pecas`, não pertence a nenhuma peça ativa e foi enviado há mais de uma hora. As fotos da abertura e a logo ficam na raiz do bucket e **nunca** entram na lista.
+5. **Nunca apagar com `delete from storage.objects`.** Isso tira a linha da listagem e deixa o arquivo no servidor: o espaço não volta. Use o botão do app ou a tela Storage do painel.
+6. Se a permissão de apagar não entrar pelo SQL, criar pelo painel: Storage → Policies → `danny` → New policy → For full customization → **DELETE** → `authenticated` → USING `bucket_id = 'danny'`.
+
+**Acessos ao catálogo.** A aba **Acessos** mostra quantas pessoas abriram o catálogo: hoje, 7 dias, 30 dias, desde o começo, e um gráfico dos últimos 14 dias. A tabela `catalog_visits` guarda só um código sorteado que fica no navegador de quem visita e a data — sem nome, telefone ou endereço de internet. A mesma pessoa só conta de novo depois de 30 minutos, para o número não inflar com atualização de página. O registro é feito por `log_catalog_visit()`, liberada para visitante sem login; a leitura é por `get_catalog_stats()`, só para quem está logado. Datas no horário de Brasília.
+
 ## Armadilhas conhecidas (já custaram tempo)
 
 - **Cloudflare:** o **Retry build repete o commit antigo**. Para pegar código novo, use
@@ -242,6 +256,8 @@ certo no Supabase.
   para o `body` (o cadastro não salvava no celular); **Prata 925** acrescentada com o
   agrupamento Banho/Prata; valor do estoque a preço de venda no Início, no Estoque, nos
   Relatórios e no CSV.
+
+- **28/09/2026:** foto passou a encolher sozinha antes de subir (1600 px, WebP), exclusão de foto e de peça passou a liberar espaço de verdade, medidor do 1 GB com botão de limpar arquivos sem uso em Ajustes, e aba nova **Acessos** contando quem abre o catálogo. SQL: `danny_espaco_acessos.sql`.
 
 ## Como continuar numa conta nova do Claude
 
