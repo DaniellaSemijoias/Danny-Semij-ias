@@ -59,6 +59,7 @@ const ICONES = {
   alerta: "M12 9v4M12 17h.01M10.3 3.9 2 18a2 2 0 0 0 1.7 3h16.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0",
   whats: "M21 11.5a8.4 8.4 0 0 1-12.6 7.3L3 20.5l1.8-5.2A8.5 8.5 0 1 1 21 11.5",
   voltarSeta: "M9 14 4 9l5-5M4 9h11a5 5 0 0 1 0 10h-4",
+  acessos: "M12 5c-5 0-8.5 4.2-9.5 6.2a1.6 1.6 0 0 0 0 1.6C3.5 14.8 7 19 12 19s8.5-4.2 9.5-6.2a1.6 1.6 0 0 0 0-1.6C20.5 9.2 17 5 12 5M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6"
 };
 function Icone({ n, s = 18, cor = "currentColor", w = 1.75, style }) {
   return (
@@ -76,6 +77,7 @@ const NAV = [
   { id: "vendas", label: "Vendas" },
   { id: "clientes", label: "Clientes" },
   { id: "comissao", label: "Comissão" },
+  { id: "acessos", label: "Acessos" },
   { id: "relatorios", label: "Relatórios" },
   { id: "ajustes", label: "Ajustes" },
 ];
@@ -413,6 +415,7 @@ export default function App() {
   const telas = {
     inicio: <Inicio ctx={ctx} />, pecas: <Pecas ctx={ctx} />, estoque: <Estoque ctx={ctx} />,
     vendas: <Vendas ctx={ctx} />, clientes: <Clientes ctx={ctx} />, comissao: <Comissao ctx={ctx} />,
+    acessos: <Acessos ctx={ctx} />,
     relatorios: <Relatorios ctx={ctx} />, ajustes: <Ajustes ctx={ctx} />,
   };
 
@@ -997,7 +1000,7 @@ function FormPeca({ ctx, inicial, aoFechar }) {
               {k === 0 && (
                 <span style={{ position: "absolute", left: 6, top: 6, background: T.vinho, color: "#fff", fontSize: 10.5, fontWeight: 600, padding: "3px 7px", borderRadius: 999 }}>principal</span>
               )}
-              <button onClick={() => muda("fotos", f.fotos.filter((_, j) => j !== k))} aria-label="Remover foto" className="dn-btn"
+              <button onClick={() => { muda("fotos", f.fotos.filter((_, j) => j !== k)); api.removeFiles([url]); }} aria-label="Remover foto" className="dn-btn"
                 style={{ position: "absolute", right: 6, top: 6, width: 26, height: 26, borderRadius: 8, border: "none", background: "rgba(255,255,255,.94)", color: T.err, cursor: "pointer", display: "grid", placeItems: "center" }}>
                 <Icone n="fechar" s={13} />
               </button>
@@ -2023,6 +2026,192 @@ function ListaEditavel({ titulo, itens, aoAdicionar, aoRemover, comCor, ctx }) {
   );
 }
 
+/* ------------------------------- Acessos ----------------------------------
+   Quantas pessoas abriram o catálogo. A mesma pessoa só conta de novo depois
+   de 30 minutos, então o número não infla quando alguém atualiza a página.  */
+function Acessos({ ctx }) {
+  const { largo } = ctx;
+  const [d, setD] = useState(null);
+  const [indo, setIndo] = useState(true);
+
+  const buscar = useCallback(async () => {
+    setIndo(true);
+    try { setD(await api.loadCatalogStats()); } catch { setD(null); }
+    finally { setIndo(false); }
+  }, []);
+  useEffect(() => { buscar(); }, [buscar]);
+
+  if (indo && !d) {
+    return <Cartao style={{ padding: 40, textAlign: "center", color: T.ink3 }}>Carregando os acessos…</Cartao>;
+  }
+  if (!d) {
+    return (
+      <div>
+        <Titulo sub="Quantas pessoas abriram o catálogo">Acessos</Titulo>
+        <Cartao style={{ padding: 22 }}>
+          <div style={{ fontSize: 14, color: T.ink2, lineHeight: 1.6 }}>
+            Não deu para ler os acessos. Se continuar assim, falta rodar o
+            <b> danny_espaco_acessos.sql</b> no Supabase.
+          </div>
+        </Cartao>
+      </div>
+    );
+  }
+
+  const dias = d.porDia.slice(-14);
+  const maior = Math.max(1, ...dias.map((x) => x.acessos));
+  const diaCurto = (iso) => {
+    const [a, m, di] = iso.split("-");
+    return `${di}/${m}`;
+  };
+
+  return (
+    <div>
+      <Titulo sub="Quantas pessoas abriram o catálogo">Acessos</Titulo>
+
+      <div style={{ display: "grid", gridTemplateColumns: largo ? "repeat(4,1fr)" : "repeat(2,1fr)", gap: 12, marginBottom: 20 }}>
+        <Indicador rotulo="Hoje" valor={num(d.hojeAcessos)} nota={`${num(d.hojePessoas)} pessoa(s)`} icone="acessos" cor={T.vinho} fundo={T.vinhoSoft} />
+        <Indicador rotulo="Últimos 7 dias" valor={num(d.seteAcessos)} nota={`${num(d.setePessoas)} pessoa(s)`} icone="acessos" cor={T.ok} fundo={T.okSoft} />
+        <Indicador rotulo="Últimos 30 dias" valor={num(d.trintaAcessos)} nota={`${num(d.trintaPessoas)} pessoa(s)`} icone="acessos" cor={T.ink} fundo={T.bg2} />
+        <Indicador rotulo="Desde o começo" valor={num(d.totalAcessos)} nota={`${num(d.totalPessoas)} pessoa(s)`} icone="relatorios" cor={T.ink2} fundo={T.bg2} />
+      </div>
+
+      <Titulo sub="Cada barra é um dia">Últimos 14 dias</Titulo>
+      <Cartao style={{ padding: "18px 16px" }}>
+        <div style={{ display: "flex", alignItems: "flex-end", gap: 5, height: 150 }}>
+          {dias.map((x) => (
+            <div key={x.dia} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+              <div style={{ fontSize: 10.5, color: x.acessos ? T.ink : T.ink3, fontWeight: 600 }}>{x.acessos || ""}</div>
+              <div title={`${x.acessos} acesso(s)`}
+                style={{
+                  width: "100%", height: `${Math.max(3, (x.acessos / maior) * 110)}px`,
+                  background: x.acessos ? T.vinho : T.line, borderRadius: "6px 6px 3px 3px", transition: "height .3s ease",
+                }} />
+              <div style={{ fontSize: 9.5, color: T.ink3, whiteSpace: "nowrap" }}>{diaCurto(x.dia)}</div>
+            </div>
+          ))}
+        </div>
+      </Cartao>
+
+      <div style={{ fontSize: 12.5, color: T.ink3, lineHeight: 1.6, marginTop: 16 }}>
+        A contagem é anônima: guardamos só um código sorteado que fica no navegador de quem visita,
+        para saber se é a mesma pessoa voltando. Nenhum nome, telefone ou localização é registrado.
+      </div>
+
+      <div style={{ marginTop: 16 }}>
+        <Botao tipo="neutro" onClick={buscar} disabled={indo}>{indo ? "Atualizando…" : "Atualizar"}</Botao>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------ Espaço usado ------------------------------ */
+const LIMITE_BYTES = 1024 * 1024 * 1024;
+const mb = (b) => `${((Number(b) || 0) / 1024 / 1024).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} MB`;
+
+function EspacoUsado({ avisar }) {
+  const [uso, setUso] = useState(null);
+  const [orfaos, setOrfaos] = useState(null);
+  const [indo, setIndo] = useState(true);
+  const [limpando, setLimpando] = useState(false);
+
+  const buscar = useCallback(async () => {
+    setIndo(true);
+    try {
+      const [u, o] = await Promise.all([api.loadStorageUsage(), api.loadOrphanFiles()]);
+      setUso(u); setOrfaos(o);
+    } catch { setUso(null); }
+    finally { setIndo(false); }
+  }, []);
+  useEffect(() => { buscar(); }, [buscar]);
+
+  const limpar = async () => {
+    if (!orfaos || !orfaos.lista.length) return;
+    if (!window.confirm(`Apagar ${num(orfaos.lista.length)} arquivo(s) que não pertencem mais a nenhuma peça, liberando ${mb(orfaos.bytes)}?\n\nFoto de peça que está no catálogo não entra nesta conta. Isso não tem como desfazer.`)) return;
+    setLimpando(true);
+    try {
+      const n = await api.removeOrphanFiles(orfaos.lista.map((f) => f.caminho));
+      await buscar();
+      avisar(n ? `${num(n)} arquivo(s) apagados.` : "Nada foi apagado.", n ? "ok" : "alerta");
+    } catch (e) {
+      avisar(`Não deu para apagar: ${e.message}. Confira a permissão de DELETE no bucket.`, "erro");
+    } finally { setLimpando(false); }
+  };
+
+  if (indo && !uso) return <Cartao style={{ padding: 22, color: T.ink3, fontSize: 14 }}>Somando os arquivos…</Cartao>;
+  if (!uso) {
+    return (
+      <Cartao style={{ padding: 18 }}>
+        <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 4 }}>Espaço usado</div>
+        <div style={{ fontSize: 12.5, color: T.ink2, lineHeight: 1.55 }}>
+          Não deu para ler agora. Se nunca aparecer, falta rodar o <b>danny_espaco_acessos.sql</b> no Supabase.
+        </div>
+      </Cartao>
+    );
+  }
+
+  const pct = Math.min(100, (uso.bytes / LIMITE_BYTES) * 100);
+  const cor = pct >= 85 ? T.err : pct >= 70 ? T.warn : T.ok;
+  const nomes = { pecas: "Fotos das peças", raiz: "Logo, ícone e abertura" };
+
+  return (
+    <Cartao style={{ padding: 18, marginBottom: 16 }}>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 600 }}>Espaço usado</div>
+          <div style={{ fontSize: 12.5, color: T.ink2, marginTop: 2 }}>O plano gratuito do Supabase guarda até 1 GB de fotos.</div>
+        </div>
+        <Botao tipo="fantasma" tamanho="s" onClick={buscar} disabled={indo}>{indo ? "…" : "atualizar"}</Botao>
+      </div>
+
+      <div style={{ display: "flex", alignItems: "baseline", gap: 8, margin: "14px 0 8px" }}>
+        <span style={{ fontSize: 26, fontWeight: 700, color: cor }}>{pct.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%</span>
+        <span style={{ fontSize: 13.5, color: T.ink2 }}>{mb(uso.bytes)} de 1 GB · {num(uso.arquivos)} arquivo(s)</span>
+      </div>
+      <div style={{ height: 10, background: T.bg2, borderRadius: 99, overflow: "hidden" }}>
+        <div style={{ width: `${Math.max(1.5, pct)}%`, height: "100%", background: cor, borderRadius: 99, transition: "width .3s ease" }} />
+      </div>
+
+      <div style={{ marginTop: 14 }}>
+        {uso.porPasta.map((p) => (
+          <div key={p.pasta} style={{ display: "flex", justifyContent: "space-between", padding: "7px 0", borderBottom: `1px solid ${T.line}`, fontSize: 13.5 }}>
+            <span style={{ color: T.ink2 }}>{nomes[p.pasta] || p.pasta}</span>
+            <span style={{ fontWeight: 600 }}>{mb(p.bytes)} <span style={{ color: T.ink3, fontWeight: 500 }}>· {num(p.arquivos)}</span></span>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ background: T.bg2, borderRadius: 12, padding: "12px 13px", marginTop: 14 }}>
+        <div style={{ fontSize: 13.5, fontWeight: 600, marginBottom: 3 }}>Arquivos sem uso</div>
+        {!orfaos ? (
+          <div style={{ fontSize: 12.5, color: T.ink3 }}>Procurando…</div>
+        ) : orfaos.arquivos === 0 ? (
+          <div style={{ fontSize: 12.5, color: T.ink2, lineHeight: 1.55 }}>
+            Nada sobrando. Toda foto guardada pertence a uma peça.
+          </div>
+        ) : (
+          <>
+            <div style={{ fontSize: 12.5, color: T.ink2, lineHeight: 1.55, marginBottom: 10 }}>
+              {num(orfaos.arquivos)} arquivo(s) ocupando <b>{mb(orfaos.bytes)}</b> não pertencem mais a nenhuma peça.
+              São fotos de peças já removidas e fotos trocadas.
+            </div>
+            <Botao tipo="perigo" tamanho="s" icone="lixo" onClick={limpar} disabled={limpando || indo}>
+              {limpando ? "Apagando…" : `Limpar e liberar ${mb(orfaos.bytes)}`}
+            </Botao>
+          </>
+        )}
+      </div>
+
+      {pct >= 70 && (
+        <div style={{ background: pct >= 85 ? T.errSoft : T.warnSoft, borderRadius: 12, padding: "12px 13px", marginTop: 12, fontSize: 13, color: T.ink2, lineHeight: 1.55 }}>
+          <b style={{ color: cor }}>{pct >= 85 ? "Espaço quase no fim." : "Passou de 70%."}</b>{" "}
+          Remova peças que saíram de linha e fotos repetidas — agora isso libera espaço de verdade.
+        </div>
+      )}
+    </Cartao>
+  );
+}
+
 function Ajustes({ ctx }) {
   const { meta, pecas, movs, comissoes, user, avisar, recarregarMeta } = ctx;
   const [s, setS] = useState(meta.settings);
@@ -2068,6 +2257,8 @@ function Ajustes({ ctx }) {
   return (
     <div>
       <Titulo sub="Dados da loja, listas e exportação">Ajustes</Titulo>
+
+      {admin && <EspacoUsado avisar={avisar} />}
 
       <Cartao style={{ padding: 18, marginBottom: 14 }}>
         <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 14 }}>Dados da loja</div>
