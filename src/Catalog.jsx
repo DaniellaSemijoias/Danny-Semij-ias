@@ -534,6 +534,10 @@ export default function Catalog() {
       .finally(() => setCarregando(false));
   }, []);
 
+  /* Conta o acesso ao catálogo. Anônimo e sem travar nada: se falhar, a
+     visitante nem percebe.                                                 */
+  useEffect(() => { api.logCatalogVisit(); }, []);
+
   const mostrar = (t) => { setAviso(t); setTimeout(() => setAviso(""), 2600); };
 
   const categorias = useMemo(() => {
